@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DIP Project: Image Reconstruction using DCT, CNN, and GNN</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.65;
+      color: #222222;
+      background-color: #ffffff;
+      display: flex;
+    }
+    /* Left Sidebar Table of Contents */
+    #sidebar {
+      width: 280px;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      background: #fafafa;
+      border-right: 1px solid #e5e5e5;
+      padding: 28px 20px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    #sidebar h3 {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #555555;
+      margin-bottom: 16px;
+    }
+    #sidebar ul {
+      list-style-type: none;
+    }
+    #sidebar li {
+      margin-bottom: 10px;
+    }
+    #sidebar a {
+      color: #0056b3;
+      text-decoration: none;
+      font-size: 0.92rem;
+      display: block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    #sidebar a:hover {
+      background: #eaeaea;
+      text-decoration: underline;
+    }
+    #sidebar .sub-item {
+      padding-left: 18px;
+      font-size: 0.85rem;
+      color: #444444;
+    }
+
+    /* Main Content Area */
+    #content {
+      flex: 1;
+      max-width: 960px;
+      padding: 40px 50px;
+      background: #ffffff;
+    }
+    h1 {
+      font-size: 2.1rem;
+      color: #111111;
+      margin-bottom: 12px;
+      line-height: 1.3;
+      border-bottom: 2px solid #222222;
+      padding-bottom: 12px;
+    }
+    h2 {
+      font-size: 1.45rem;
+      color: #222222;
+      margin-top: 40px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 8px;
+    }
+    h3 {
+      font-size: 1.15rem;
+      color: #333333;
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+    p {
+      margin-bottom: 14px;
+      color: #333333;
+    }
+    ul, ol {
+      margin-left: 24px;
+      margin-bottom: 16px;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 4px;
+      background: #eef2f7;
+      color: #1a5276;
+      margin-bottom: 14px;
+    }
+
+    /* Diagrams & Visuals */
+    .diagram-container {
+      background: #fdfdfd;
+      border: 1px solid #dcdcdc;
+      border-radius: 6px;
+      padding: 20px;
+      margin: 24px 0;
+      text-align: center;
+    }
+    .diagram-title {
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: #555555;
+      margin-bottom: 12px;
+      text-align: left;
+    }
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* Callout Boxes */
+    .note-box {
+      background: #f8f9fa;
+      border-left: 4px solid #0056b3;
+      padding: 14px 18px;
+      margin: 18px 0;
+      border-radius: 0 4px 4px 0;
+    }
+    .note-box strong {
+      color: #0056b3;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 24px 0;
+      font-size: 0.92rem;
+    }
+    th, td {
+      border: 1px solid #dcdcdc;
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background: #f4f4f4;
+      font-weight: 600;
+    }
+    tr:nth-child(even) {
+      background: #fafafa;
+    }
+    code {
+      background: #f1f1f1;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 0.88em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LEFT SIDEBAR: TABLE OF CONTENTS -->
+  <nav id="sidebar">
+    <h3>Table of Contents</h3>
+    <ul>
+      <li><a href="#overview">1. Project Overview</a></li>
+      <li><a href="#core-problem">2. The Core Problem</a>
+        <ul>
+          <li><a class="sub-item" href="#dct-frequency">DCT & High Frequencies</a></li>
+          <li><a class="sub-item" href="#why-artifacts">Why Artifacts Happen</a></li>
+        </ul>
+      </li>
+      <li><a href="#traditional-pipeline">3. Traditional Process</a></li>
+      <li><a href="#cnn-model">4. Approach A: Pure CNN</a>
+        <ul>
+          <li><a class="sub-item" href="#cnn-strengths">What CNN is Good At</a></li>
+          <li><a class="sub-item" href="#cnn-weaknesses">Where CNN Falls Short</a></li>
+        </ul>
+      </li>
+      <li><a href="#gnm-model">5. Approach B: Pure GNN</a>
+        <ul>
+          <li><a class="sub-item" href="#gnn-graph">How the Graph is Built</a></li>
+          <li><a class="sub-item" href="#gnn-strengths">What GNN is Good At</a></li>
+          <li><a class="sub-item" href="#gnn-weaknesses">Where GNN Falls Short</a></li>
+        </ul>
+      </li>
+      <li><a href="#hybrid-model">6. Approach C: The Hybrid</a>
+        <ul>
+          <li><a class="sub-item" href="#hybrid-why">Why Hybrid is the Best</a></li>
+          <li><a class="sub-item" href="#hybrid-flow">End-to-End Hybrid Flow</a></li>
+        </ul>
+      </li>
+      <li><a href="#comparison-matrix">7. Full Comparison Matrix</a></li>
+      <li><a href="#team-roadmap">8. Roadmap for the Team</a></li>
+    </ul>
+  </nav>
+
+  <!-- MAIN CONTENT AREA -->
+  <main id="content">
+    <span class="badge">Digital Image Processing • Project Guide &amp; Technical Reference</span>
+    <h1>High-Frequency DCT Coefficient Prediction for Enhanced Image Reconstruction</h1>
+    <p>This technical summary explains our DIP assignment project, the physics and mathematics of Discrete Cosine Transform (DCT) degradation, and how <strong>CNN</strong>, <strong>GNN</strong>, and <strong>Hybrid (CNN+GNN)</strong> architectures solve this problem.</p>
+
+    <!-- 1. OVERVIEW -->
+    <section id="overview">
+      <h2>1. Project Overview</h2>
+      <p>In digital image processing, lossy compression (such as JPEG) splits images into 8&times;8 blocks, converts them to the frequency domain using the Discrete Cosine Transform (DCT), and removes high-frequency coefficients to save storage.</p>
+      <div class="note-box">
+        <strong>Project Goal:</strong> Instead of accepting blurry, blocky images from standard Inverse DCT (IDCT) reconstruction, we train a machine learning model to predict the missing high-frequency coefficients from the preserved low-frequency coefficients, restoring clean edges and fine textures.
+      </div>
+    </section>
+
+    <!-- 2. THE CORE PROBLEM -->
+    <section id="core-problem">
+      <h2>2. The Core Problem: Why Do Images Degrade?</h2>
+      
+      <h3 id="dct-frequency">What Happens in an 8&times;8 DCT Block?</h3>
+      <p>When an 8&times;8 block of pixels is converted into DCT space, its 64 coefficients represent spatial patterns rather than individual pixels:</p>
+      <ul>
+        <li><strong>Top-Left (DC Coefficient):</strong> Represents the average brightness/color of the entire block. Holds the vast majority of image energy.</li>
+        <li><strong>Middle Frequencies (Low AC):</strong> Represents smooth gradients and broad geometric shapes.</li>
+        <li><strong>Bottom-Right (High AC):</strong> Represents fine lines, sharp object edges, and microscopic textures (hair, fabric, grain).</li>
+      </ul>
+
+      <!-- DIAGRAM 1: DCT Matrix Layout -->
+      <div class="diagram-container">
+        <div class="diagram-title">Figure 1: 8&times;8 DCT Frequency Layout & Truncation Cutoff</div>
+        <svg viewBox="0 0 650 240" xmlns="http://www.w3.org/2000/svg">
+          <!-- Background Grid 8x8 -->
+          <g transform="translate(30, 20)">
+            <text x="80" y="-8" font-size="12" font-weight="bold" fill="#333" text-anchor="middle">8&times;8 Frequency Grid</text>
+            <!-- 8x8 blocks -->
+            <rect x="0" y="0" width="160" height="160" fill="#fdfdfd" stroke="#555" stroke-width="1.5"/>
+            <!-- Low freq preserved area (triangle) -->
+            <polygon points="0,0 120,0 0,120" fill="#d4edda" stroke="#28a745" stroke-width="1.5"/>
+            <!-- DC Node -->
+            <rect x="0" y="0" width="20" height="20" fill="#28a745"/>
+            <text x="10" y="14" font-size="10" fill="#fff" font-weight="bold" text-anchor="middle">DC</text>
+            <!-- High freq truncated area -->
+            <polygon points="120,0 160,0 160,160 0,160 0,120" fill="#f8d7da" stroke="#dc3545" stroke-width="1.5" stroke-dasharray="3,3"/>
+            <text x="45" y="60" font-size="11" fill="#155724" font-weight="bold">Preserved Low Freq</text>
+            <text x="95" y="130" font-size="11" fill="#721c24" font-weight="bold">Cut / Zeroed Out</text>
+          </g>
+
+          <!-- Arrow -->
+          <path d="M 220 100 L 270 100" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+            </marker>
+          </defs>
+
+          <!-- Resulting Artifacts -->
+          <g transform="translate(300, 25)">
+            <rect x="0" y="0" width="310" height="150" fill="#fff" stroke="#999" rx="4"/>
+            <text x="15" y="26" font-size="13" font-weight="bold" fill="#333">Reconstruction Artifacts (Standard IDCT):</text>
+            <text x="15" y="60" font-size="12" fill="#555">• <tspan font-weight="bold" fill="#c0392b">Blocking Artifacts:</tspan> Sharp grid seams appear because</text>
+            <text x="25" y="78" font-size="12" fill="#555">adjacent 8&times;8 blocks are decoded independently.</text>
+            <text x="15" y="110" font-size="12" fill="#555">• <tspan font-weight="bold" fill="#c0392b">Blurring &amp; Ringing:</tspan> Fine details round down to 0,</text>
+            <text x="25" y="128" font-size="12" fill="#555">leaving fuzzy halo ripples around sharp boundaries.</text>
+          </g>
+        </svg>
+      </div>
+
+      <h3 id="why-artifacts">Why Do Artifacts Happen?</h3>
+      <ol>
+        <li><strong>Information Loss:</strong> When high frequencies are zeroed out, sharp edges lose the exact mathematical waves needed to cancel overshoot, creating ripples (ringing).</li>
+        <li><strong>Independent Block Processing:</strong> Each 8&times;8 block is transformed in total isolation. When pixel values at the borders are modified without checking neighbor blocks, the boundary edges no longer align, producing a visible grid pattern across the picture.</li>
+      </ol>
+    </section>
+
+    <!-- 3. TRADITIONAL PIPELINE -->
+    <section id="traditional-pipeline">
+      <h2>3. The Traditional Process Step-by-Step</h2>
+      <p>The standard baseline process (used in our Step 1 and Step 2 assignment instructions) runs as follows:</p>
+
+      <!-- DIAGRAM 2: Traditional Flow -->
+      <div class="diagram-container">
+        <div class="diagram-title">Figure 2: The Baseline Image Degradation &amp; Recovery Workflow</div>
+        <svg viewBox="0 0 700 130" xmlns="http://www.w3.org/2000/svg">
+          <!-- Step 1 -->
+          <rect x="10" y="20" width="115" height="70" fill="#f4f4f4" stroke="#666" rx="4"/>
+          <text x="67" y="48" font-size="11" font-weight="bold" text-anchor="middle">Original Image</text>
+          <text x="67" y="66" font-size="9" fill="#666" text-anchor="middle">Grayscale (2D Grid)</text>
+
+          <path d="M 125 55 L 145 55" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Step 2 -->
+          <rect x="145" y="20" width="115" height="70" fill="#f4f4f4" stroke="#666" rx="4"/>
+          <text x="202" y="48" font-size="11" font-weight="bold" text-anchor="middle">8&times;8 Block 2D-DCT</text>
+          <text x="202" y="66" font-size="9" fill="#666" text-anchor="middle">Spatial &rarr; Frequency</text>
+
+          <path d="M 260 55 L 280 55" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Step 3 -->
+          <rect x="280" y="20" width="125" height="70" fill="#fff0f0" stroke="#dc3545" rx="4"/>
+          <text x="342" y="48" font-size="11" font-weight="bold" fill="#c0392b" text-anchor="middle">Truncation Cut</text>
+          <text x="342" y="66" font-size="9" fill="#777" text-anchor="middle">Drop High AC to 0</text>
+
+          <path d="M 405 55 L 425 55" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Step 4 -->
+          <rect x="425" y="20" width="115" height="70" fill="#f4f4f4" stroke="#666" rx="4"/>
+          <text x="482" y="48" font-size="11" font-weight="bold" text-anchor="middle">Standard IDCT</text>
+          <text x="482" y="66" font-size="9" fill="#666" text-anchor="middle">Zero-padded Inverse</text>
+
+          <path d="M 540 55 L 560 55" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Step 5 -->
+          <rect x="560" y="20" width="130" height="70" fill="#fcfcfc" stroke="#999" rx="4"/>
+          <text x="625" y="44" font-size="11" font-weight="bold" fill="#333" text-anchor="middle">Baseline Output</text>
+          <text x="625" y="62" font-size="9" fill="#d9534f" font-weight="bold" text-anchor="middle">Low PSNR / Blurry</text>
+          <text x="625" y="78" font-size="9" fill="#666" text-anchor="middle">(Blocks visible)</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- 4. CNN MODEL -->
+    <section id="cnn-model">
+      <h2>4. Approach A: The Pure CNN Model</h2>
+      <p>A Convolutional Neural Network (such as CARD) treats the image or DCT patch as a regular 2D pixel array, running 2D filters over sliding windows.</p>
+
+      <h3 id="cnn-strengths">What CNN is Good At:</h3>
+      <ul>
+        <li><strong>Local Spatial Pattern Recognition:</strong> Highly optimized for detecting local gradients, corners, edges, and line orientations in 2D image coordinates.</li>
+        <li><strong>Hardware Acceleration:</strong> Modern GPUs execute 2D convolutions using Tensor Cores with exceptional speed.</li>
+        <li><strong>Translation Invariance:</strong> An edge looks like an edge regardless of where it appears in the frame.</li>
+      </ul>
+
+      <h3 id="cnn-weaknesses">Where CNN Falls Short:</h3>
+      <ul>
+        <li><strong>Ignores Harmonic Relationships:</strong> High-frequency DCT coefficients follow mathematical frequency harmonic decay. A CNN treats the 8&times;8 frequency matrix as ordinary pixels, completely oblivious to harmonic mathematics.</li>
+        <li><strong>Rigid, Fixed Receptive Fields:</strong> A CNN only inspects immediate spatial neighbors (e.g., 3&times;3 or 5&times;5). It cannot easily connect two distant blocks that share the identical texture pattern without dozens of layers.</li>
+      </ul>
+    </section>
+
+    <!-- 5. GNN MODEL -->
+    <section id="gnm-model">
+      <h2>5. Approach B: The Pure GNN Model</h2>
+      <p>A Graph Neural Network models elements as <strong>nodes</strong> connected by flexible <strong>edges</strong>, exchanging information through message passing.</p>
+
+      <h3 id="gnn-graph">How the Graph is Constructed:</h3>
+      <ul>
+        <li><strong>Nodes:</strong> The frequency positions inside the 8&times;8 block (e.g., node 0 = DC, node 1 = AC1, up to node 63).</li>
+        <li><strong>Harmonic Edges:</strong> Edges link low frequencies directly to their higher-order harmonic frequencies, allowing the network to explicitly learn: <em>"Given low frequency amplitude X, high-frequency harmonic Y should be Z."</em></li>
+        <li><strong>Inter-Block Boundary Edges:</strong> Connecting neighboring blocks across borders to explicitly exchange boundary values.</li>
+      </ul>
+
+      <!-- DIAGRAM 3: GNN Topology -->
+      <div class="diagram-container">
+        <div class="diagram-title">Figure 3: Graph Formulation of DCT Frequencies &amp; Block Boundaries</div>
+        <svg viewBox="0 0 650 200" xmlns="http://www.w3.org/2000/svg">
+          <!-- Subgraph 1: Harmonic Graph -->
+          <g transform="translate(30, 20)">
+            <rect x="0" y="0" width="260" height="160" fill="#fafafa" stroke="#bbb" rx="4"/>
+            <text x="130" y="24" font-size="12" font-weight="bold" fill="#333" text-anchor="middle">Intra-Block Harmonic Edges</text>
+            <!-- Low Freq Node (Known) -->
+            <circle cx="60" cy="70" r="18" fill="#28a745"/>
+            <text x="60" y="74" font-size="9" fill="#fff" font-weight="bold" text-anchor="middle">Low Freq</text>
+            <circle cx="60" cy="120" r="18" fill="#28a745"/>
+            <text x="60" y="124" font-size="9" fill="#fff" font-weight="bold" text-anchor="middle">Low Freq</text>
+
+            <!-- High Freq Node (To Predict) -->
+            <circle cx="190" cy="70" r="18" fill="#dc3545" stroke="#900" stroke-dasharray="2,2"/>
+            <text x="190" y="74" font-size="9" fill="#fff" font-weight="bold" text-anchor="middle">Missing</text>
+            <circle cx="190" cy="120" r="18" fill="#dc3545" stroke="#900" stroke-dasharray="2,2"/>
+            <text x="190" y="124" font-size="9" fill="#fff" font-weight="bold" text-anchor="middle">Missing</text>
+
+            <!-- Directed Edges -->
+            <line x1="78" y1="70" x2="172" y2="70" stroke="#0056b3" stroke-width="2" marker-end="url(#arrow)"/>
+            <line x1="78" y1="120" x2="172" y2="120" stroke="#0056b3" stroke-width="2" marker-end="url(#arrow)"/>
+            <line x1="75" y1="80" x2="175" y2="115" stroke="#0056b3" stroke-width="2" marker-end="url(#arrow)"/>
+            <text x="125" y="60" font-size="10" fill="#0056b3" text-anchor="middle">Harmonic Link</text>
+          </g>
+
+          <!-- Subgraph 2: Inter-Block Seam Edges -->
+          <g transform="translate(350, 20)">
+            <rect x="0" y="0" width="260" height="160" fill="#fafafa" stroke="#bbb" rx="4"/>
+            <text x="130" y="24" font-size="12" font-weight="bold" fill="#333" text-anchor="middle">Inter-Block Boundary Seam Edges</text>
+            <!-- Block A -->
+            <rect x="25" y="55" width="80" height="80" fill="#e8f4f8" stroke="#007bff"/>
+            <text x="65" y="100" font-size="11" fill="#0056b3" font-weight="bold" text-anchor="middle">Block A</text>
+            <!-- Block B -->
+            <rect x="155" y="55" width="80" height="80" fill="#e8f4f8" stroke="#007bff"/>
+            <text x="195" y="100" font-size="11" fill="#0056b3" font-weight="bold" text-anchor="middle">Block B</text>
+            <!-- Boundary link -->
+            <line x1="105" y1="95" x2="155" y2="95" stroke="#d9534f" stroke-width="3" stroke-dasharray="3,3"/>
+            <text x="130" y="85" font-size="10" fill="#d9534f" font-weight="bold" text-anchor="middle">Seam Edge</text>
+            <text x="130" y="150" font-size="9" fill="#666" text-anchor="middle">Eliminates Blocking Lines</text>
+          </g>
+        </svg>
+      </div>
+
+      <h3 id="gnn-strengths">What GNN is Good At:</h3>
+      <ul>
+        <li><strong>Relational Reasoning:</strong> Directly maps how energy transfers across frequency octaves.</li>
+        <li><strong>Block Boundary Healing:</strong> Explicitly passes messages across block borders to eliminate blocking artifacts.</li>
+        <li><strong>Long-Range Similarities:</strong> Can connect non-adjacent blocks across the image that share similar texture profiles.</li>
+      </ul>
+
+      <h3 id="gnn-weaknesses">Where GNN Falls Short:</h3>
+      <ul>
+        <li><strong>Poor at Raw Local Spatial Filtering:</strong> GNNs do not have native spatial convolution kernels to detect continuous 2D textures or edges directly from raw pixel arrays.</li>
+        <li><strong>Over-Smoothing Risk:</strong> When GNNs go beyond 3-4 layers, node representations can blend together and become identical, losing sharpness.</li>
+      </ul>
+    </section>
+
+    <!-- 6. THE HYBRID MODEL -->
+    <section id="hybrid-model">
+      <h2>6. Approach C: The Hybrid (CNN + GNN)</h2>
+      <p>The Hybrid model couples both worlds: the <strong>CNN acts as the "Sensory Eyes"</strong> and the <strong>GNN acts as the "Relational Brain."</strong></p>
+
+      <h3 id="hybrid-why">Why the Hybrid Model is the Best Solution</h3>
+      <ol>
+        <li><strong>Clear Division of Labor:</strong>
+          <ul>
+            <li><strong>CNN's Role:</strong> Scans local 2D image blocks and extracts high-quality edge, gradient, and texture features.</li>
+            <li><strong>GNN's Role:</strong> Takes those rich feature vectors, models frequency harmonic relationships, and predicts missing high-frequency coefficients while smoothing seams across neighboring blocks.</li>
+          </ul>
+        </li>
+        <li><strong>Resolves Weaknesses of Both:</strong> The CNN solves the GNN's inability to extract rich 2D spatial features, while the GNN solves the CNN's inability to model non-local relationships and harmonic structures.</li>
+      </ol>
+
+      <!-- DIAGRAM 4: Full Hybrid Pipeline -->
+      <div class="diagram-container" id="hybrid-flow">
+        <div class="diagram-title">Figure 4: Complete Architecture of the Proposed CNN + GNN Hybrid System</div>
+        <svg viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg">
+          <!-- Step 1: Input -->
+          <rect x="10" y="45" width="105" height="70" fill="#fff" stroke="#444" rx="4"/>
+          <text x="62" y="73" font-size="11" font-weight="bold" text-anchor="middle">Damaged Image</text>
+          <text x="62" y="91" font-size="9" fill="#666" text-anchor="middle">(Truncated Low-Pass)</text>
+
+          <path d="M 115 80 L 140 80" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Step 2: CNN Encoder -->
+          <rect x="140" y="30" width="130" height="100" fill="#eef7fc" stroke="#007bff" stroke-width="1.5" rx="4"/>
+          <text x="205" y="60" font-size="12" font-weight="bold" fill="#0056b3" text-anchor="middle">CNN Encoder</text>
+          <text x="205" y="80" font-size="9" fill="#555" text-anchor="middle">2D Convolutions</text>
+          <text x="205" y="98" font-size="9" fill="#28a745" font-weight="bold" text-anchor="middle">&bull; Extracts Local Edges</text>
+          <text x="205" y="114" font-size="9" fill="#28a745" font-weight="bold" text-anchor="middle">&bull; Texture Encodings</text>
+
+          <path d="M 270 80 L 295 80" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Step 3: Graph Adapter -->
+          <rect x="295" y="45" width="100" height="70" fill="#f9f9f9" stroke="#666" rx="4"/>
+          <text x="345" y="73" font-size="11" font-weight="bold" text-anchor="middle">Graph Adapter</text>
+          <text x="345" y="91" font-size="9" fill="#666" text-anchor="middle">Grid &rarr; Nodes/Edges</text>
+
+          <path d="M 395 80 L 420 80" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Step 4: GNN Relational Engine -->
+          <rect x="420" y="30" width="140" height="100" fill="#fdfaf2" stroke="#f39c12" stroke-width="1.5" rx="4"/>
+          <text x="490" y="60" font-size="12" font-weight="bold" fill="#d35400" text-anchor="middle">GNN Processor</text>
+          <text x="490" y="80" font-size="9" fill="#555" text-anchor="middle">Message Passing (GCN/GAT)</text>
+          <text x="490" y="98" font-size="9" fill="#b9770e" font-weight="bold" text-anchor="middle">&bull; Predicts Harmonics</text>
+          <text x="490" y="114" font-size="9" fill="#b9770e" font-weight="bold" text-anchor="middle">&bull; Heals Block Borders</text>
+
+          <path d="M 560 80 L 585 80" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Step 5: IDCT -->
+          <rect x="585" y="45" width="70" height="70" fill="#f9f9f9" stroke="#666" rx="4"/>
+          <text x="620" y="75" font-size="11" font-weight="bold" text-anchor="middle">2D-IDCT</text>
+          <text x="620" y="93" font-size="9" fill="#666" text-anchor="middle">Reconstruct</text>
+
+          <path d="M 655 80 L 675 80" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Step 6: Final Output -->
+          <rect x="675" y="45" width="80" height="70" fill="#eafaf1" stroke="#28a745" stroke-width="1.5" rx="4"/>
+          <text x="715" y="73" font-size="11" font-weight="bold" fill="#28a745" text-anchor="middle">Final Output</text>
+          <text x="715" y="91" font-size="9" fill="#155724" font-weight="bold" text-anchor="middle">High PSNR</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- 7. COMPARISON MATRIX -->
+    <section id="comparison-matrix">
+      <h2>7. Detailed Comparison Matrix</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Criterion</th>
+            <th>Pure CNN (CARD)</th>
+            <th>Pure GNN (Scholar Idea)</th>
+            <th>Hybrid (CNN + GNN)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Core Strength</strong></td>
+            <td>Local 2D pixel processing &amp; speed</td>
+            <td>Frequency harmonic &amp; seam modeling</td>
+            <td>Combines local textures with frequency graph relations</td>
+          </tr>
+          <tr>
+            <td><strong>Local Texture Extraction</strong></td>
+            <td>Excellent</td>
+            <td>Weak (struggles on raw pixels)</td>
+            <td><strong>Excellent</strong> (via CNN encoder)</td>
+          </tr>
+          <tr>
+            <td><strong>Harmonic Dependency Modeling</strong></td>
+            <td>Weak (treats DCT as pixels)</td>
+            <td>Excellent (explicit frequency edges)</td>
+            <td><strong>Excellent</strong> (via GNN message passing)</td>
+          </tr>
+          <tr>
+            <td><strong>Blocking Boundary Healing</strong></td>
+            <td>Needs patch overlap tricks</td>
+            <td>Direct via boundary edges</td>
+            <td><strong>Direct &amp; seamless</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Implementation Difficulty</strong></td>
+            <td>3 / 10 (Easy)</td>
+            <td>5 / 10 (Moderate)</td>
+            <td>7.5 / 10 (Challenging)</td>
+          </tr>
+          <tr>
+            <td><strong>Reconstruction Quality (PSNR/SSIM)</strong></td>
+            <td>Good Baseline</td>
+            <td>Moderate – Good</td>
+            <td><strong>Highest Quality</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 8. TEAM ROADMAP -->
+    <section id="team-roadmap">
+      <h2>8. Roadmap for the Team</h2>
+      <p>To ensure we finish on time and produce high marks for the assignment while opening the door for an academic research paper, we will proceed in two distinct phases:</p>
+
+      <div class="note-box">
+        <strong>Phase 1: Course Assignment (Pure GNN Pipeline)</strong>
+        <ol style="margin-top: 8px;">
+          <li>Implement 8&times;8 block 2D-DCT and high-frequency coefficient truncation in Python.</li>
+          <li>Implement standard zero-padded 2D-IDCT baseline and compute baseline PSNR/SSIM.</li>
+          <li>Construct the frequency graph using PyTorch Geometric (PyG).</li>
+          <li>Train a GCN/GAT model to predict missing coefficients and measure PSNR/SSIM gain over baseline.</li>
+          <li>Submit report and demonstrate project completion.</li>
+        </ol>
+      </div>
+
+      <div class="note-box">
+        <strong>Phase 2: Research Paper Extension (CNN + GNN Hybrid)</strong>
+        <ol style="margin-top: 8px;">
+          <li>Attach a shallow CNN encoder before graph construction to extract spatial image features.</li>
+          <li>Connect cross-block spatial edges and harmonic frequency edges simultaneously.</li>
+          <li>Benchmark against baseline IDCT, pure CNN, and pure GNN (ablation study).</li>
+          <li>Write manuscript detailing novelty and results for conference submission.</li>
+        </ol>
+      </div>
+    </section>
+  </main>
+
+</body>
+</html>

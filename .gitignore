@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Checkpoints & model weights
+checkpoints/*.pth
+checkpoints/*.pt
+
+# Evaluation output images (keep directory, ignore outputs)
+results/*
+!results/.gitkeep
+
+# Environments & IDEs
+.venv/
+venv/
+env/
+.vscode/
+.idea/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Large datasets archive/temp
+*.tar.gz
+*.tgz
+*.zip

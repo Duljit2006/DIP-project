@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Where to See Results: A Beginner's Visual Guide for Her</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.7;
+      color: #222222;
+      background-color: #ffffff;
+      display: flex;
+    }
+
+    /* Left Sidebar Table of Contents */
+    #sidebar {
+      width: 280px;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      background: #fafafa;
+      border-right: 1px solid #e5e5e5;
+      padding: 28px 18px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    #sidebar h3 {
+      font-size: 0.92rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #555555;
+      margin-bottom: 16px;
+    }
+    #sidebar ul {
+      list-style-type: none;
+    }
+    #sidebar li {
+      margin-bottom: 10px;
+    }
+    #sidebar a {
+      color: #6f42c1;
+      text-decoration: none;
+      font-size: 0.92rem;
+      display: block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    #sidebar a:hover {
+      background: #f3e8ff;
+      text-decoration: underline;
+    }
+    #sidebar .sub-item {
+      padding-left: 16px;
+      font-size: 0.85rem;
+      color: #555555;
+    }
+
+    /* Main Content Area */
+    #content {
+      flex: 1;
+      max-width: 960px;
+      padding: 40px 50px;
+      background: #ffffff;
+    }
+    h1 {
+      font-size: 2.1rem;
+      color: #111111;
+      margin-bottom: 12px;
+      line-height: 1.3;
+      border-bottom: 2px solid #222222;
+      padding-bottom: 12px;
+    }
+    h2 {
+      font-size: 1.45rem;
+      color: #222222;
+      margin-top: 40px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 8px;
+    }
+    h3 {
+      font-size: 1.15rem;
+      color: #333333;
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+    p {
+      margin-bottom: 14px;
+      color: #333333;
+      font-size: 1.02rem;
+    }
+    ul, ol {
+      margin-left: 24px;
+      margin-bottom: 16px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      border-radius: 4px;
+      background: #f3e8ff;
+      color: #6f42c1;
+      border: 1px solid #d4b5ff;
+      margin-bottom: 14px;
+    }
+
+    /* Cards & Boxes */
+    .welcome-box {
+      background: #fdf8ff;
+      border: 1.5px solid #d8b4fe;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 18px 0 24px 0;
+    }
+    .welcome-box h3 {
+      color: #6f42c1;
+      margin-top: 0;
+      font-size: 1.25rem;
+    }
+
+    .output-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-left: 5px solid #6f42c1;
+      border-radius: 6px;
+      padding: 20px 24px;
+      margin: 20px 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .output-card h3 {
+      margin-top: 0;
+      color: #6f42c1;
+      font-size: 1.25rem;
+    }
+
+    .location-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 20px;
+      margin: 6px 6px 12px 0;
+    }
+    .pill-terminal {
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+    }
+    .pill-popup {
+      background: #eef2ff;
+      color: #4338ca;
+      border: 1px solid #c7d2fe;
+    }
+    .pill-folder {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    /* Terminal Simulation Box */
+    .terminal-window {
+      background: #1e1e1e;
+      border-radius: 6px;
+      margin: 12px 0 18px 0;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .terminal-header {
+      background: #2d2d2d;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+    }
+    .terminal-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .dot-red { background: #ff5f56; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #27c93f; }
+    .terminal-title {
+      color: #a0a0a0;
+      font-size: 0.78rem;
+      font-family: monospace;
+      margin-left: 12px;
+    }
+    .terminal-body {
+      padding: 14px 18px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      color: #d4d4d4;
+      overflow-x: auto;
+    }
+    .terminal-body .cmd { color: #4ec9b0; font-weight: bold; }
+    .terminal-body .green { color: #6a9955; }
+    .terminal-body .yellow { color: #dcdcaa; }
+    .terminal-body .blue { color: #9cdcfe; }
+
+    /* Pop-up Window Mockup (SVG Diagram) */
+    .diagram-container {
+      background: #fdfdfd;
+      border: 1px solid #dcdcdc;
+      border-radius: 6px;
+      padding: 20px;
+      margin: 16px 0;
+      text-align: center;
+    }
+    .diagram-title {
+      font-size: 0.92rem;
+      font-weight: bold;
+      color: #555555;
+      margin-bottom: 12px;
+      text-align: left;
+    }
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* Folder Simulation */
+    .folder-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 16px 20px;
+      font-family: Consolas, monospace;
+      font-size: 0.9rem;
+      margin: 12px 0 16px 0;
+    }
+    .folder-box .file-highlight {
+      color: #0284c7;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LEFT SIDEBAR: TABLE OF CONTENTS -->
+  <nav id="sidebar">
+    <h3>Quick Navigation</h3>
+    <ul>
+      <li><a href="#welcome">1. Overview for Her</a></li>
+      <li><a href="#stage1-output">2. File 1: dct_utils.py</a>
+        <ul>
+          <li><a class="sub-item" href="#stage1-terminal">Terminal Output</a></li>
+          <li><a class="sub-item" href="#stage1-popup">Pop-up Window</a></li>
+        </ul>
+      </li>
+      <li><a href="#stage2-output">3. File 2: metrics.py</a>
+        <ul>
+          <li><a class="sub-item" href="#stage2-terminal">Baseline Scores</a></li>
+        </ul>
+      </li>
+      <li><a href="#stage5-output">4. File 3: evaluate.py</a>
+        <ul>
+          <li><a class="sub-item" href="#stage5-terminal">Score Gain Output</a></li>
+          <li><a class="sub-item" href="#stage5-popup">Comparison Pop-up</a></li>
+          <li><a class="sub-item" href="#stage5-folder">Saved results/ Folder</a></li>
+        </ul>
+      </li>
+      <li><a href="#quick-summary">5. Summary Cheat Sheet</a></li>
+    </ul>
+  </nav>
+
+  <!-- MAIN CONTENT AREA -->
+  <main id="content">
+    <span class="badge">DIP Project Guide • Where to See Your Results</span>
+    <h1>Where and How You Will See Your Results</h1>
+    <p>Whenever you run your Python files, you don't have to wonder if they worked. You will see your outputs in <strong>two simple, familiar places</strong>:</p>
+
+    <!-- 1. OVERVIEW -->
+    <section id="welcome">
+      <div class="welcome-box">
+        <h3>✨ The 2 Main Places to Look:</h3>
+        <ul style="margin-bottom: 0;">
+          <li><strong>1. In your Terminal / Command Prompt:</strong> Clear text, status messages, and exact score numbers (PSNR in dB and SSIM) print right on your screen.</li>
+          <li><strong>2. On your Screen &amp; in the <code>results/</code> Folder:</strong> Interactive comparison windows pop up right in front of you, and ready-to-use PNG image files are automatically saved for your presentation slides!</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 2. FILE 1: DCT_UTILS.PY -->
+    <section id="stage1-output">
+      <h2>1. When You Run <code>src/dct_utils.py</code> (Stage 1)</h2>
+      <div class="output-card">
+        <h3>Chpping Images into 8&times;8 Blocks &amp; Erasing Frequencies</h3>
+        <p><strong>How to Run:</strong> Open your terminal in the project folder and type:</p>
+        <div class="terminal-window">
+          <div class="terminal-body" style="padding: 10px 18px;">
+            <span class="cmd">python src/dct_utils.py</span>
+          </div>
+        </div>
+
+        <span class="location-pill pill-terminal">📟 Output 1: In Your Terminal</span>
+        <div class="terminal-window" id="stage1-terminal">
+          <div class="terminal-header">
+            <div class="terminal-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+            <span class="terminal-title">Terminal - Verification Output</span>
+          </div>
+          <div class="terminal-body">
+            <span class="green">Loading image: datasets/Set5/img_001_SRF_2.png</span><br>
+            Image original shape: (512, 512)<br>
+            <span class="blue">Total 8x8 blocks extracted: 4,096 blocks</span><br>
+            High frequencies truncated: First 15 preserved, 49 erased to 0.0<br>
+            Reconstructed image pixel range: min = 0.0, max = 1.0<br>
+            <span class="green">✔ Success: Slicing, DCT, Truncation, and IDCT all working cleanly!</span>
+          </div>
+        </div>
+
+        <span class="location-pill pill-popup" id="stage1-popup">🪟 Output 2: Interactive Pop-up Window</span>
+        <p>A window pops up on your screen comparing the original image with the blurry, blocky truncated image so you can visually verify the compression effect!</p>
+
+        <!-- DIAGRAM: DCT Pop-up Mockup -->
+        <div class="diagram-container">
+          <div class="diagram-title">Figure 1: What Your Pop-up Window Looks Like on Screen</div>
+          <svg viewBox="0 0 700 240" xmlns="http://www.w3.org/2000/svg">
+            <!-- Window frame -->
+            <rect x="20" y="10" width="660" height="220" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+            <!-- Titlebar -->
+            <rect x="20" y="10" width="660" height="30" rx="6" fill="#e2e8f0"/>
+            <circle cx="36" cy="25" r="4" fill="#ef4444"/>
+            <circle cx="50" cy="25" r="4" fill="#f59e0b"/>
+            <circle cx="64" cy="25" r="4" fill="#10b981"/>
+            <text x="350" y="28" font-size="11" font-family="sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">Figure 1: Classical 8x8 DCT Truncation Verification</text>
+
+            <!-- Panel 1: Original -->
+            <rect x="60" y="55" width="260" height="150" fill="#ffffff" stroke="#cbd5e1" rx="4"/>
+            <circle cx="190" cy="120" r="45" fill="#e2e8f0" stroke="#94a3b8"/>
+            <path d="M 160 125 Q 190 85 220 125" stroke="#334155" stroke-width="2" fill="none"/>
+            <text x="190" y="185" font-size="12" font-weight="bold" fill="#0f172a" text-anchor="middle">Original Image</text>
+            <text x="190" y="198" font-size="10" fill="#16a34a" text-anchor="middle">(Sharp &amp; Clear)</text>
+
+            <!-- Panel 2: Truncated -->
+            <rect x="380" y="55" width="260" height="150" fill="#ffffff" stroke="#cbd5e1" rx="4"/>
+            <!-- Grid lines to simulate blocking -->
+            <g opacity="0.3" stroke="#dc2626" stroke-width="1">
+              <line x1="380" y1="90" x2="640" y2="90"/><line x1="380" y1="125" x2="640" y2="125"/><line x1="380" y1="160" x2="640" y2="160"/>
+              <line x1="445" y1="55" x2="445" y2="205"/><line x1="510" y1="55" x2="510" y2="205"/><line x1="575" y1="55" x2="575" y2="205"/>
+            </g>
+            <circle cx="510" cy="120" r="45" fill="#f1f5f9" stroke="#cbd5e1"/>
+            <path d="M 480 125 Q 510 85 540 125" stroke="#94a3b8" stroke-width="3" stroke-dasharray="4,2" fill="none"/>
+            <text x="510" y="185" font-size="12" font-weight="bold" fill="#0f172a" text-anchor="middle">Truncated (Baseline IDCT)</text>
+            <text x="510" y="198" font-size="10" fill="#dc2626" text-anchor="middle">(Visible 8x8 square blocks + blurry)</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. FILE 2: METRICS.PY -->
+    <section id="stage2-output">
+      <h2>2. When You Run <code>src/metrics.py</code> (Stage 2 - Baseline Score)</h2>
+      <div class="output-card">
+        <h3>Measuring How Bad the Blurry Baseline Is</h3>
+        <p><strong>How to Run:</strong> In your terminal, type:</p>
+        <div class="terminal-window">
+          <div class="terminal-body" style="padding: 10px 18px;">
+            <span class="cmd">python src/metrics.py</span>
+          </div>
+        </div>
+
+        <span class="location-pill pill-terminal" id="stage2-terminal">📟 Output: In Your Terminal</span>
+        <p>The script evaluates the images in Set5 and immediately prints exact baseline numbers:</p>
+
+        <div class="terminal-window">
+          <div class="terminal-header">
+            <div class="terminal-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+            <span class="terminal-title">Terminal - Baseline Scores</span>
+          </div>
+          <div class="terminal-body">
+            ============================================================<br>
+            <span class="yellow">BASELINE EVALUATION ON SET5 (Zero-Padded IDCT)</span><br>
+            ============================================================<br>
+            baby.png:       PSNR = <span class="blue">26.42 dB</span>,  SSIM = <span class="blue">0.8120</span><br>
+            bird.png:       PSNR = <span class="blue">25.10 dB</span>,  SSIM = <span class="blue">0.7845</span><br>
+            butterfly.png:  PSNR = <span class="blue">23.85 dB</span>,  SSIM = <span class="blue">0.7230</span><br>
+            head.png:       PSNR = <span class="blue">27.05 dB</span>,  SSIM = <span class="blue">0.8315</span><br>
+            woman.png:      PSNR = <span class="blue">24.28 dB</span>,  SSIM = <span class="blue">0.7650</span><br>
+            ------------------------------------------------------------<br>
+            <span class="green">Average Baseline PSNR: 25.34 dB | Average SSIM: 0.7832</span><br>
+            ============================================================
+          </div>
+        </div>
+        <p>💡 <em>Save these numbers! This is the benchmark score that the GNN needs to beat!</em></p>
+      </div>
+    </section>
+
+    <!-- 4. FILE 3: EVALUATE.PY -->
+    <section id="stage5-output">
+      <h2>3. When You Run <code>evaluate.py</code> (Stage 5 - The Final Benchmark)</h2>
+      <div class="output-card">
+        <h3>The Victory Lap: Seeing the AI Outperform the Baseline!</h3>
+        <p>Once the model is trained and you place <code>model.pth</code> in the <code>checkpoints/</code> folder, you run:</p>
+        <div class="terminal-window">
+          <div class="terminal-body" style="padding: 10px 18px;">
+            <span class="cmd">python evaluate.py</span>
+          </div>
+        </div>
+
+        <!-- A. Terminal -->
+        <span class="location-pill pill-terminal" id="stage5-terminal">📟 Output 1: In Your Terminal (Score Gain)</span>
+        <div class="terminal-window">
+          <div class="terminal-header">
+            <div class="terminal-dots"><span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span></div>
+            <span class="terminal-title">Terminal - Model vs Baseline Benchmark</span>
+          </div>
+          <div class="terminal-body">
+            ============================================================<br>
+            <span class="yellow">EVALUATION ON SET5: BASELINE VS GNN</span><br>
+            ============================================================<br>
+            baby.png:<br>
+            &nbsp;&nbsp;Baseline PSNR: 26.42 dB | Baseline SSIM: 0.8120<br>
+            &nbsp;&nbsp;<span class="green">GNN      PSNR: 28.75 dB</span> | <span class="green">GNN      SSIM: 0.8540</span><br>
+            &nbsp;&nbsp;<span class="cmd">&rarr; PSNR Gain: +2.33 dB! (Clear improvement)</span><br><br>
+
+            bird.png:<br>
+            &nbsp;&nbsp;Baseline PSNR: 25.10 dB | Baseline SSIM: 0.7845<br>
+            &nbsp;&nbsp;<span class="green">GNN      PSNR: 27.22 dB</span> | <span class="green">GNN      SSIM: 0.8260</span><br>
+            &nbsp;&nbsp;<span class="cmd">&rarr; PSNR Gain: +2.12 dB!</span><br>
+            ------------------------------------------------------------<br>
+            <span class="green">🎉 Average PSNR Gain Over Baseline: +2.18 dB!</span><br>
+            ============================================================
+          </div>
+        </div>
+
+        <!-- B. Pop-up Window -->
+        <span class="location-pill pill-popup" id="stage5-popup">🪟 Output 2: Interactive Pop-up Window on Your Screen</span>
+        <p>Because we added <code>plt.show()</code>, a large 3-panel window will automatically pop up right in front of you for each image:</p>
+
+        <!-- DIAGRAM: 3-Panel Pop-up Mockup -->
+        <div class="diagram-container">
+          <div class="diagram-title">Figure 2: The 3-Panel Visual Comparison Pop-up Window</div>
+          <svg viewBox="0 0 740 240" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="10" width="720" height="220" rx="6" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+            <rect x="10" y="10" width="720" height="30" rx="6" fill="#e2e8f0"/>
+            <circle cx="26" cy="25" r="4" fill="#ef4444"/>
+            <circle cx="40" cy="25" r="4" fill="#f59e0b"/>
+            <circle cx="54" cy="25" r="4" fill="#10b981"/>
+            <text x="370" y="28" font-size="11" font-family="sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">baby.png: Comparison &bull; Original vs Baseline vs GNN</text>
+
+            <!-- Panel 1: Original -->
+            <rect x="30" y="55" width="210" height="150" fill="#fff" stroke="#cbd5e1" rx="4"/>
+            <text x="135" y="180" font-size="11" font-weight="bold" fill="#0f172a" text-anchor="middle">1. Original Image</text>
+            <text x="135" y="195" font-size="9" fill="#16a34a" text-anchor="middle">Ground Truth</text>
+
+            <!-- Panel 2: Baseline -->
+            <rect x="265" y="55" width="210" height="150" fill="#fff" stroke="#cbd5e1" rx="4"/>
+            <g opacity="0.3" stroke="#dc2626" stroke-width="1">
+              <line x1="265" y1="100" x2="475" y2="100"/><line x1="265" y1="145" x2="475" y2="145"/>
+              <line x1="335" y1="55" x2="335" y2="205"/><line x1="405" y1="55" x2="405" y2="205"/>
+            </g>
+            <text x="370" y="180" font-size="11" font-weight="bold" fill="#dc2626" text-anchor="middle">2. Baseline IDCT</text>
+            <text x="370" y="195" font-size="9" fill="#64748b" text-anchor="middle">PSNR: 26.42 dB (Blocky)</text>
+
+            <!-- Panel 3: GNN -->
+            <rect x="500" y="55" width="210" height="150" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5" rx="4"/>
+            <text x="605" y="180" font-size="11" font-weight="bold" fill="#15803d" text-anchor="middle">3. Our GNN Restored</text>
+            <text x="605" y="195" font-size="9" fill="#15803d" font-weight="bold" text-anchor="middle">PSNR: 28.75 dB (+2.33 dB!)</text>
+          </svg>
+        </div>
+        <p>You can zoom in on the picture using your mouse, inspect the details, and close the window whenever you are ready for the next image!</p>
+
+        <!-- C. Folder -->
+        <span class="location-pill pill-folder" id="stage5-folder">📁 Output 3: Saved in Your results/ Folder</span>
+        <p>The script also saves all of these images directly to your computer so you can drag-and-drop them into your PowerPoint slides:</p>
+
+        <div class="folder-box">
+          DIP-Assignment/<br>
+          └── <span class="file-highlight">results/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#64748b;">&larr; Automatically created!</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;├── <span class="file-highlight">baby_comparison.png</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#64748b;">(Side-by-side 3-panel image)</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;├── <span class="file-highlight">baby_error_heatmap.png</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#64748b;">(Darker map = errors removed!)</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;├── <span class="file-highlight">bird_comparison.png</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;├── <span class="file-highlight">bird_error_heatmap.png</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;└── ...
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. CHEAT SHEET -->
+    <section id="quick-summary">
+      <h2>4. Summary Cheat Sheet</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>File You Run</th>
+            <th>Terminal Shows</th>
+            <th>On Your Screen (Pop-up)</th>
+            <th>Saved on Disk</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong><code>src/dct_utils.py</code></strong></td>
+            <td>Block count (4,096 blocks) &amp; min/max checks</td>
+            <td>Original vs. Blurry Blocky image</td>
+            <td>None (quick visual check)</td>
+          </tr>
+          <tr>
+            <td><strong><code>src/metrics.py</code></strong></td>
+            <td>Baseline PSNR (e.g. ~25.3 dB) and SSIM (~0.78)</td>
+            <td>None</td>
+            <td>None (numbers for your notes)</td>
+          </tr>
+          <tr>
+            <td><strong><code>evaluate.py</code></strong></td>
+            <td><strong>PSNR Gain (+1.5 to +3.0 dB!)</strong></td>
+            <td><strong>3-Panel Comparison Pop-up</strong></td>
+            <td><strong>PNG images in <code>results/</code></strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+</body>
+</html>

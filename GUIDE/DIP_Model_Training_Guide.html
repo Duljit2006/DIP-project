@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Model Training Guide: CNN, GNN, and Hybrid for DCT Reconstruction</title>
+  
+  <!-- MathJax for rendering clean, publication-grade LaTeX equations and symbols -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.7;
+      color: #222222;
+      background-color: #ffffff;
+      display: flex;
+    }
+    /* Left Sidebar Table of Contents */
+    #sidebar {
+      width: 290px;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      background: #fafafa;
+      border-right: 1px solid #e5e5e5;
+      padding: 28px 18px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    #sidebar h3 {
+      font-size: 0.92rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #555555;
+      margin-bottom: 16px;
+    }
+    #sidebar ul {
+      list-style-type: none;
+    }
+    #sidebar li {
+      margin-bottom: 10px;
+    }
+    #sidebar a {
+      color: #0056b3;
+      text-decoration: none;
+      font-size: 0.92rem;
+      display: block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    #sidebar a:hover {
+      background: #eaeaea;
+      text-decoration: underline;
+    }
+    #sidebar .sub-item {
+      padding-left: 16px;
+      font-size: 0.85rem;
+      color: #444444;
+    }
+
+    /* Main Content Area */
+    #content {
+      flex: 1;
+      max-width: 960px;
+      padding: 40px 50px;
+      background: #ffffff;
+    }
+    h1 {
+      font-size: 2.1rem;
+      color: #111111;
+      margin-bottom: 12px;
+      line-height: 1.3;
+      border-bottom: 2px solid #222222;
+      padding-bottom: 12px;
+    }
+    h2 {
+      font-size: 1.45rem;
+      color: #222222;
+      margin-top: 40px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 8px;
+    }
+    h3 {
+      font-size: 1.15rem;
+      color: #333333;
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+    p {
+      margin-bottom: 14px;
+      color: #333333;
+    }
+    ul, ol {
+      margin-left: 24px;
+      margin-bottom: 16px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 4px;
+      background: #eef2f7;
+      color: #1a5276;
+      margin-bottom: 14px;
+    }
+
+    /* Diagrams & Visuals */
+    .diagram-container {
+      background: #fdfdfd;
+      border: 1px solid #dcdcdc;
+      border-radius: 6px;
+      padding: 20px;
+      margin: 24px 0;
+      text-align: center;
+    }
+    .diagram-title {
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: #555555;
+      margin-bottom: 12px;
+      text-align: left;
+    }
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* Beginner Friendly Callouts */
+    .beginner-callout {
+      background: #fdfaf2;
+      border-left: 4px solid #f39c12;
+      border-radius: 0 4px 4px 0;
+      padding: 14px 18px;
+      margin: 14px 0 18px 0;
+    }
+    .beginner-callout strong {
+      color: #b9770e;
+      display: inline-block;
+      margin-bottom: 4px;
+    }
+
+    .note-box {
+      background: #f8f9fa;
+      border-left: 4px solid #0056b3;
+      padding: 14px 18px;
+      margin: 18px 0;
+      border-radius: 0 4px 4px 0;
+    }
+
+    .math-display-card {
+      background: #fbfbfb;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      text-align: center;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+    }
+    .math-display-card .formula {
+      font-size: 1.15rem;
+      color: #111111;
+      margin: 8px 0;
+    }
+    .math-caption {
+      font-size: 0.85rem;
+      color: #666666;
+      margin-top: 6px;
+    }
+
+    .step-box {
+      background: #fcfcfc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #0056b3;
+      border-radius: 4px;
+      padding: 16px 20px;
+      margin: 14px 0;
+    }
+    .step-box h4 {
+      font-size: 1.05rem;
+      color: #0056b3;
+      margin-bottom: 8px;
+    }
+
+    /* Code Blocks */
+    pre {
+      background: #282c34;
+      color: #abb2bf;
+      padding: 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 0.9rem;
+      margin: 14px 0;
+    }
+    code {
+      font-family: Consolas, Monaco, monospace;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 24px 0;
+      font-size: 0.92rem;
+    }
+    th, td {
+      border: 1px solid #dcdcdc;
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background: #f4f4f4;
+      font-weight: 600;
+    }
+    tr:nth-child(even) {
+      background: #fafafa;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LEFT SIDEBAR: TABLE OF CONTENTS -->
+  <nav id="sidebar">
+    <h3>Training Guide TOC</h3>
+    <ul>
+      <li><a href="#three-pillars">1. Three Core Pillars</a></li>
+      <li><a href="#step-0">2. Step 0: Common Data Pipeline</a></li>
+      <li><a href="#approach-1">3. Approach 1: Pure CNN</a>
+        <ul>
+          <li><a class="sub-item" href="#cnn-dataflow">Data Flow (4D Tensors)</a></li>
+          <li><a class="sub-item" href="#cnn-loss">Loss &amp; Optimization</a></li>
+          <li><a class="sub-item" href="#cnn-training-process">The Training Process</a></li>
+        </ul>
+      </li>
+      <li><a href="#approach-2">4. Approach 2: Pure GNN</a>
+        <ul>
+          <li><a class="sub-item" href="#gnn-graph-prep">Graph Construction</a></li>
+          <li><a class="sub-item" href="#gnn-training-loop">Message Passing &amp; Loss</a></li>
+          <li><a class="sub-item" href="#gnn-training-process">The Training Process (Step-by-Step)</a></li>
+        </ul>
+      </li>
+      <li><a href="#approach-3">5. Approach 3: Hybrid (CNN+GNN)</a>
+        <ul>
+          <li><a class="sub-item" href="#hybrid-forward">End-to-End Forward Pass</a></li>
+          <li><a class="sub-item" href="#hybrid-dual-loss">Dual-Domain Loss</a></li>
+          <li><a class="sub-item" href="#hybrid-training-process">The Training Process (Step-by-Step)</a></li>
+        </ul>
+      </li>
+      <li><a href="#summary-matrix">6. Training Summary Matrix</a></li>
+      <li><a href="#where-to-start">7. Where to Start (Action Plan)</a></li>
+    </ul>
+  </nav>
+
+  <!-- MAIN CONTENT AREA -->
+  <main id="content">
+    <span class="badge">Machine Learning &amp; Deep Learning • Mathematical &amp; Beginner Reference</span>
+    <h1>How to Train the Models: CNN, GNN, and Hybrid Architectures</h1>
+    <p>This technical guide explains how to formulate the dataset, loss functions, and forward/backward training pipelines for <strong>CNN</strong>, <strong>GNN</strong>, and <strong>Hybrid (CNN+GNN)</strong> approaches using clean mathematical notation alongside simple, intuitive explanations for beginners.</p>
+
+    <!-- 1. THREE PILLARS -->
+    <section id="three-pillars">
+      <h2>1. The Three Core Pillars of Model Training</h2>
+      <p>Regardless of whether you use a CNN, GNN, or Hybrid model, every training process relies on three fundamental pillars:</p>
+      <ol>
+        <li><strong>Dataset &amp; Training Pair Generation:</strong> Defining input-target pairs $(\text{Input } X \rightarrow \text{Ground Truth Target } Y)$.</li>
+        <li><strong>Loss Function &amp; Optimization:</strong> Calculating mathematical error between prediction $\hat{Y}$ and true target $Y$, and updating model weights through gradient backpropagation ($\nabla_\theta \mathcal{L}$).</li>
+        <li><strong>Architecture-Specific Data Flow:</strong> Managing how tensors (images or graphs) flow through layers during the forward pass.</li>
+      </ol>
+
+      <div class="beginner-callout">
+        <strong>💡 Plain-English Analogy (Studying with Flashcards):</strong>
+        <p>Think of training an AI model like a student preparing for an exam with flashcards:</p>
+        <ul style="margin-left: 20px; margin-bottom: 0;">
+          <li><strong>The Question (Input $X$):</strong> The damaged or compressed picture tile.</li>
+          <li><strong>The Student's Guess ($\hat{Y}$):</strong> What the AI predicts the missing details should look like.</li>
+          <li><strong>The Answer Key (Target $Y$):</strong> The untouched original picture.</li>
+          <li><strong>The Penalty / Loss ($\mathcal{L}$):</strong> How far off the guess was. The student's brain (model weights $\theta$) adjusts to make fewer mistakes next time.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 2. STEP 0: DATA PIPELINE -->
+    <section id="step-0">
+      <h2>2. Step 0: The Common Foundation (Data Generation)</h2>
+      <p>A major advantage of this project is that <strong>no manual human labeling is needed</strong>. It is a <em>self-supervised</em> task constructed directly from clean grayscale image datasets (e.g., Set5, BSDS500, DIV2K).</p>
+
+      <!-- DIAGRAM 1: Data Pipeline -->
+      <div class="diagram-container">
+        <div class="diagram-title">Figure 1: Self-Supervised Training Pair Extraction Pipeline</div>
+        <svg viewBox="0 0 720 180" xmlns="http://www.w3.org/2000/svg">
+          <!-- Clear Image -->
+          <rect x="15" y="55" width="120" height="70" fill="#f4f4f4" stroke="#444" rx="4"/>
+          <text x="75" y="85" font-size="11" font-weight="bold" text-anchor="middle">Clear Original Image</text>
+          <text x="75" y="103" font-size="9" fill="#666" text-anchor="middle">(Ground Truth Source)</text>
+
+          <path d="M 135 90 L 165 90" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/>
+            </marker>
+          </defs>
+
+          <!-- 8x8 DCT -->
+          <rect x="165" y="55" width="120" height="70" fill="#f4f4f4" stroke="#444" rx="4"/>
+          <text x="225" y="85" font-size="11" font-weight="bold" text-anchor="middle">Slice 8&times;8 &amp; 2D-DCT</text>
+          <text x="225" y="103" font-size="9" fill="#666" text-anchor="middle">Spatial &rarr; Frequency</text>
+
+          <path d="M 285 90 L 320 90" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Top branch: Target Y -->
+          <path d="M 320 90 L 320 45 L 350 45" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <rect x="350" y="15" width="160" height="60" fill="#eafaf1" stroke="#28a745" stroke-width="1.5" rx="4"/>
+          <text x="430" y="42" font-size="11" font-weight="bold" fill="#155724" text-anchor="middle">Target (Y)</text>
+          <text x="430" y="58" font-size="9" fill="#155724" text-anchor="middle">True High-Freqs / Clean Patch</text>
+
+          <!-- Bottom branch: Input X -->
+          <path d="M 320 90 L 320 135 L 350 135" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <rect x="350" y="105" width="160" height="60" fill="#fff0f0" stroke="#dc3545" stroke-width="1.5" rx="4"/>
+          <text x="430" y="132" font-size="11" font-weight="bold" fill="#721c24" text-anchor="middle">Model Input (X)</text>
+          <text x="430" y="148" font-size="9" fill="#721c24" text-anchor="middle">High Frequencies Zeroed-Out</text>
+
+          <!-- Training Pair bracket -->
+          <path d="M 520 45 L 545 45 L 545 90 L 565 90" stroke="#0056b3" stroke-width="1.5" fill="none"/>
+          <path d="M 520 135 L 545 135 L 545 90" stroke="#0056b3" stroke-width="1.5" fill="none"/>
+          <rect x="565" y="65" width="140" height="50" fill="#eef7fc" stroke="#007bff" rx="4"/>
+          <text x="635" y="88" font-size="11" font-weight="bold" fill="#0056b3" text-anchor="middle">Supervised Pair</text>
+          <text x="635" y="104" font-size="9" fill="#0056b3" text-anchor="middle">(Input X, Ground Truth Y)</text>
+        </svg>
+      </div>
+
+      <div class="note-box">
+        <strong>Formal Mathematical Definitions:</strong>
+        <ul style="margin-top:6px; margin-left:20px;">
+          <li><strong>Input ($X$):</strong> An $8 \times 8$ block $C_{\text{trunc}}(u, v)$ where high-frequency coordinates are zeroed out:
+            $$C_{\text{trunc}}(u, v) = \begin{cases} C_{\text{orig}}(u, v), & (u, v) \in \Omega_{\text{low}} \\ 0, & (u, v) \in \Omega_{\text{high}} \end{cases}$$
+          </li>
+          <li><strong>Target ($Y$):</strong> The true high-frequency coefficients $\{C_{\text{orig}}(u, v) \mid (u, v) \in \Omega_{\text{high}}\}$, or the original spatial pixel patch $I_{\text{clean}}$.</li>
+        </ul>
+      </div>
+
+      <div class="beginner-callout">
+        <strong>💡 Plain-English Summary:</strong>
+        <p>In simple words: We take an ordinary clear photo, cut it into $8 \times 8$ squares, and convert it to frequencies. We keep the true numbers as our <strong>Answer Key ($Y$)</strong>, then erase the fine-detail numbers to <code>0</code> to make our <strong>Question ($X$)</strong>. That gives us millions of free test questions with answers!</p>
+      </div>
+    </section>
+
+    <!-- 3. APPROACH 1: PURE CNN -->
+    <section id="approach-1">
+      <h2>3. Approach 1: Training the Pure CNN Model (like CARD)</h2>
+      <p>In a standard CNN architecture, all data stays in 4D grid tensors formatted as <code>[Batch_Size, Channels, Height, Width]</code>.</p>
+
+      <h3 id="cnn-dataflow">1. Data Flow in CNN Training</h3>
+      <ul>
+        <li><strong>Input:</strong> Degraded 2D image patches $X \in \mathbb{R}^{B \times 1 \times H \times W}$ (e.g., $64 \times 64$ patches with blurred edges and blocking lines).</li>
+        <li><strong>Forward Pass:</strong> Passes through convolutional feature-extraction and wide-activation residual layers.</li>
+        <li><strong>Output:</strong> Restored spatial patch $\hat{I} \in \mathbb{R}^{B \times 1 \times H \times W}$.</li>
+      </ul>
+
+      <!-- DIAGRAM 2: CNN Training Loop -->
+      <div class="diagram-container">
+        <div class="diagram-title">Figure 2: Pure CNN Training &amp; Gradient Optimization Loop</div>
+        <svg viewBox="0 0 680 120" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="35" width="110" height="50" fill="#fff0f0" stroke="#dc3545" rx="4"/>
+          <text x="65" y="58" font-size="11" font-weight="bold" fill="#721c24" text-anchor="middle">Input Patch (X)</text>
+          <text x="65" y="72" font-size="9" fill="#777" text-anchor="middle">64&times;64 Degraded</text>
+
+          <path d="M 120 60 L 150 60" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <rect x="150" y="25" width="140" height="70" fill="#eef7fc" stroke="#007bff" stroke-width="1.5" rx="4"/>
+          <text x="220" y="55" font-size="12" font-weight="bold" fill="#0056b3" text-anchor="middle">Deep CNN Model</text>
+          <text x="220" y="73" font-size="9" fill="#555" text-anchor="middle">20 Residual Blocks</text>
+
+          <path d="M 290 60 L 320 60" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <rect x="320" y="35" width="115" height="50" fill="#fff" stroke="#333" rx="4"/>
+          <text x="377" y="58" font-size="11" font-weight="bold" text-anchor="middle">Restored (I&#770;)</text>
+          <text x="377" y="72" font-size="9" fill="#777" text-anchor="middle">64&times;64 Output</text>
+
+          <path d="M 435 60 L 465 60" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <rect x="465" y="25" width="195" height="70" fill="#fdfdfd" stroke="#555" rx="4"/>
+          <text x="562" y="50" font-size="11" font-weight="bold" text-anchor="middle">L1 Spatial Loss</text>
+          <text x="562" y="68" font-size="10" fill="#c0392b" font-weight="bold" text-anchor="middle">Loss = | I&#770; - I_clean |</text>
+          <text x="562" y="84" font-size="9" fill="#666" text-anchor="middle">&larr; Backpropagate with Adam</text>
+        </svg>
+      </div>
+
+      <h3 id="cnn-loss">2. Loss Function &amp; Optimization</h3>
+      <div class="math-display-card">
+        <div class="formula">
+          $$\mathcal{L}_{\text{CNN}} = \frac{1}{N} \sum_{p=1}^{N} \left| \hat{I}(p) - I_{\text{clean}}(p) \right|$$
+        </div>
+        <div class="math-caption">Mean Absolute Error ($L_1$ Loss) over all $N$ pixel coordinates $p$.</div>
+      </div>
+      <p><strong>Optimizer:</strong> Adam with learning rate $\alpha = 10^{-4}$, $\beta_1 = 0.9$, and $\beta_2 = 0.999$. Minimizing $L_1$ loss forces the convolutional kernels to eliminate grid seams and sharpen edges.</p>
+
+      <div class="beginner-callout">
+        <strong>💡 Plain-English Meaning of Equation:</strong>
+        <p>The equation simply means: Compare the AI's cleaned picture with the real original picture pixel by pixel. Add up how far off the colors were, and take the average. The optimizer adjusts the CNN filters to make this error as close to zero as possible.</p>
+      </div>
+
+      <h3 id="cnn-training-process">3. How to Actually Train the CNN</h3>
+      <div class="step-box">
+        <h4>Practical CNN Training Execution:</h4>
+        <ol>
+          <li><strong>Data Loader:</strong> Extract $64 \times 64$ patches from images. Generate $X$ by applying block DCT, zeroing out high frequencies, and inverting back. $Y$ is the original $64 \times 64$ patch.</li>
+          <li><strong>Batch Loop:</strong> Pass batches of $X$ into <code>output = cnn_model(X)</code>.</li>
+          <li><strong>Compute Error:</strong> <code>loss = torch.mean(torch.abs(output - Y))</code>.</li>
+          <li><strong>Backpropagation:</strong> Call <code>loss.backward()</code> and <code>optimizer.step()</code>.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 4. APPROACH 2: PURE GNN -->
+    <section id="approach-2">
+      <h2>4. Approach 2: Training the Pure GNN Model (The Scholar's Approach)</h2>
+      <p>In this model, images are represented as <strong>graphs of frequency nodes</strong> rather than 2D pixel grids.</p>
+
+      <div class="beginner-callout">
+        <strong>💡 Plain-English Concept (The Musical Harmonics Analogy):</strong>
+        <p>A GNN doesn't look at pictures like eyes do; it looks at relationships. Think of a guitar: when you pluck a low note, it naturally vibrates and creates higher harmonic sounds. Even if a mute cuts off the high sound, a trained musician who hears the low note can deduce what the high notes should be! The GNN learns the exact same harmonic relationships between low and high frequencies.</p>
+      </div>
+
+      <h3 id="gnn-graph-prep">1. How the Graph is Prepared for Training</h3>
+      <p>For every $8 \times 8$ DCT block, a graph $\mathcal{G} = (\mathcal{V}, \mathcal{E})$ is constructed:</p>
+      <ul>
+        <li><strong>Node Feature Matrix ($V \in \mathbb{R}^{64 \times D}$):</strong> Each node represents one frequency index $i \in \{0, 1, \dots, 63\}$.
+          <ul>
+            <li>Nodes $i \in \Omega_{\text{low}}$: Contain known low-frequency DCT values $C_i$.</li>
+            <li>Nodes $i \in \Omega_{\text{high}}$: Initialized with value $0.0$.</li>
+            <li><strong>Positional Encoding:</strong> Normalized 2D coordinates $(u_i / 8, v_i / 8)$ are concatenated to node features so the network knows each node's exact frequency location.</li>
+          </ul>
+        </li>
+        <li><strong>Edge Set ($\mathcal{E}$):</strong> Predefined harmonic adjacency list connecting lower frequencies $(u, v)$ to their harmonics $(2u, 2v)$, $(u+1, v)$, and $(u, v+1)$.</li>
+        <li><strong>Ground Truth Target ($Y$):</strong> True scalar values $C_i^{\text{true}}$ for all $i \in \Omega_{\text{high}}$.</li>
+      </ul>
+
+      <!-- DIAGRAM 3: GNN Training Loop -->
+      <div class="diagram-container">
+        <div class="diagram-title">Figure 3: Pure GNN Frequency Node Regression Pipeline</div>
+        <svg viewBox="0 0 700 135" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="35" width="130" height="65" fill="#fafafa" stroke="#666" rx="4"/>
+          <text x="75" y="60" font-size="11" font-weight="bold" text-anchor="middle">Input Graph Block</text>
+          <text x="75" y="76" font-size="9" fill="#28a745" text-anchor="middle">Low Freq: Known</text>
+          <text x="75" y="90" font-size="9" fill="#dc3545" text-anchor="middle">High Freq: 0.0</text>
+
+          <path d="M 140 67 L 170 67" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <rect x="170" y="25" width="150" height="85" fill="#fdfaf2" stroke="#f39c12" stroke-width="1.5" rx="4"/>
+          <text x="245" y="55" font-size="12" font-weight="bold" fill="#d35400" text-anchor="middle">GNN (GCN / GAT)</text>
+          <text x="245" y="73" font-size="9" fill="#555" text-anchor="middle">Message Passing across</text>
+          <text x="245" y="87" font-size="9" fill="#555" text-anchor="middle">Harmonic Edges</text>
+
+          <path d="M 320 67 L 350 67" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <rect x="350" y="35" width="130" height="65" fill="#fff" stroke="#333" rx="4"/>
+          <text x="415" y="60" font-size="11" font-weight="bold" text-anchor="middle">Predicted Nodes</text>
+          <text x="415" y="78" font-size="9" fill="#0056b3" text-anchor="middle">High-Freq Amplitudes</text>
+
+          <path d="M 480 67 L 510 67" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <rect x="510" y="25" width="180" height="85" fill="#fdfdfd" stroke="#555" rx="4"/>
+          <text x="600" y="52" font-size="11" font-weight="bold" text-anchor="middle">Node-Level MSE Loss</text>
+          <text x="600" y="70" font-size="10" fill="#c0392b" font-weight="bold" text-anchor="middle">&sum; ( C&#770;<sub>high</sub> &minus; C<sub>true</sub> )&sup2;</text>
+          <text x="600" y="88" font-size="9" fill="#666" text-anchor="middle">Only on Missing Nodes</text>
+        </svg>
+      </div>
+
+      <h3 id="gnn-training-loop">2. Loss Function &amp; Reconstruction</h3>
+      <p>The loss function is calculated <strong>strictly over the missing high-frequency nodes</strong> ($\Omega_{\text{high}}$):</p>
+      <div class="math-display-card">
+        <div class="formula">
+          $$\mathcal{L}_{\text{GNN}} = \frac{1}{|\Omega_{\text{high}}|} \sum_{i \in \Omega_{\text{high}}} \left( \hat{C}_i - C_i^{\text{true}} \right)^2$$
+        </div>
+        <div class="math-caption">Node-Level Mean Squared Error ($L_2$ Loss) where $|\Omega_{\text{high}}|$ is the number of missing frequencies.</div>
+      </div>
+
+      <div class="beginner-callout">
+        <strong>💡 Plain-English Meaning of Equation:</strong>
+        <p>Why don't we grade all 64 nodes? Because the low frequencies were already known! We only test the model on the missing numbers ($\Omega_{\text{high}}$). Take each guessed number, subtract the true number from our answer key, square it, and average them together.</p>
+      </div>
+
+      <p>During inference, the predicted high-frequency values $\hat{C}_i$ are assembled with the known low-frequency values $C_{\text{low}}$, and 2D-IDCT transforms the completed matrix back into the restored spatial domain.</p>
+
+      <h3 id="gnn-training-process">3. How to Actually Train the GNN (Step-by-Step)</h3>
+      <div class="step-box">
+        <h4>Detailed GNN Training Walkthrough:</h4>
+        <ol>
+          <li><strong>PyTorch Geometric Graph Dataset:</strong> Convert each $8 \times 8$ block into a <code>Data(x=node_features, edge_index=edges, y=ground_truth_high_freqs)</code> object.
+            <ul>
+              <li><code>node_features</code> is a $64 \times 3$ tensor: `[frequency_value, u_coord, v_coord]`.</li>
+              <li><code>edge_index</code> is a $2 \times E$ tensor defining the harmonic pairs.</li>
+            </ul>
+          </li>
+          <li><strong>Forward Pass:</strong> The GNN model (2 to 3 layers of <code>GCNConv</code> or <code>GATConv</code>) propagates messages between connected nodes, updating their hidden states.</li>
+          <li><strong>Linear Regression Head:</strong> A final <code>nn.Linear(hidden_dim, 1)</code> maps the hidden states of missing nodes into predicted scalar DCT amplitudes $\hat{C}_i$.</li>
+          <li><strong>Loss Calculation:</strong> Compute MSE loss strictly over indices $i \in \Omega_{\text{high}}$ (ignoring known low frequencies).</li>
+          <li><strong>Backward Pass:</strong> <code>loss.backward()</code> updates the GNN edge-weight and convolution parameters.</li>
+        </ol>
+      </div>
+
+      <p><strong>Executable PyTorch Geometric Training Loop:</strong></p>
+      <pre><code># Training Loop for Pure GNN (PyTorch Geometric)
+import torch
+import torch.nn as nn
+from torch_geometric.loader import DataLoader
+
+optimizer = torch.optim.Adam(gnn_model.parameters(), lr=1e-3)
+criterion = nn.MSELoss()
+
+for epoch in range(num_epochs):
+    for batch in dataloader:
+        optimizer.zero_grad()
+        
+        # 1. Forward Pass: GNN predicts values for all nodes in the batch
+        pred_nodes = gnn_model(batch.x, batch.edge_index)
+        
+        # 2. Compute loss strictly on missing high-frequency nodes (missing_mask)
+        loss = criterion(pred_nodes[batch.missing_mask], batch.y_true[batch.missing_mask])
+        
+        # 3. Backpropagate error and step optimizer
+        loss.backward()
+        optimizer.step()
+        
+    print(f"Epoch {epoch}: Node MSE Loss = {loss.item():.4f}")</code></pre>
+    </section>
+
+    <!-- 5. APPROACH 3: HYBRID MODEL -->
+    <section id="approach-3">
+      <h2>5. Approach 3: Training the Hybrid Model (CNN + GNN)</h2>
+      <p>The Hybrid architecture is trained <strong>end-to-end</strong>, where the CNN feature extractor and GNN message-passing network are optimized simultaneously in a unified computational graph.</p>
+
+      <div class="beginner-callout">
+        <strong>💡 Plain-English Concept (Eyes + Brain Working Together):</strong>
+        <ul style="margin-left: 20px; margin-bottom: 0;">
+          <li><strong>The CNN is the "Eyes":</strong> It looks at real 2D pixel pictures, spotting local edges, textures, and gradients.</li>
+          <li><strong>The GNN is the "Brain":</strong> It receives what the eyes saw, connects the mathematical harmonic lines, and smooths out the seams between neighboring blocks.</li>
+        </ul>
+      </div>
+
+      <h3 id="hybrid-forward">1. End-to-End Forward Pass</h3>
+      <ol>
+        <li>The degraded image patch passes through a <strong>Shallow CNN Feature Extractor</strong> $f_{\text{CNN}}$ to produce local edge and gradient feature maps.</li>
+        <li>A reshape/adapter layer maps local CNN feature vectors into graph node states $h_i^{(0)}$.</li>
+        <li>The <strong>GNN Layers (GAT / GCN)</strong> propagate messages across harmonic frequency edges and inter-block boundary seams.</li>
+        <li>A linear head outputs the predicted high-frequency DCT matrix $\hat{C}$.</li>
+        <li>A <strong>Differentiable 2D-IDCT Layer</strong> synthesizes the final restored image: $\hat{I} = \text{IDCT}(\hat{C})$.</li>
+      </ol>
+
+      <!-- DIAGRAM 4: Dual-Domain Loss -->
+      <div class="diagram-container" id="hybrid-dual-loss">
+        <div class="diagram-title">Figure 4: Hybrid Dual-Domain (Pixel + Frequency) Loss Training Loop</div>
+        <svg viewBox="0 0 720 180" xmlns="http://www.w3.org/2000/svg">
+          <!-- Input -->
+          <rect x="10" y="60" width="95" height="50" fill="#f4f4f4" stroke="#555" rx="4"/>
+          <text x="57" y="83" font-size="11" font-weight="bold" text-anchor="middle">Degraded (X)</text>
+          <text x="57" y="99" font-size="9" fill="#777" text-anchor="middle">Patch Tensor</text>
+
+          <path d="M 105 85 L 130 85" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Hybrid Box -->
+          <rect x="130" y="45" width="220" height="80" fill="#fcfcfc" stroke="#0056b3" stroke-width="1.5" rx="4"/>
+          <text x="240" y="70" font-size="12" font-weight="bold" fill="#0056b3" text-anchor="middle">Hybrid Pipeline</text>
+          <text x="240" y="88" font-size="10" fill="#333" text-anchor="middle">CNN Features &rarr; GNN Reasoning</text>
+          <text x="240" y="104" font-size="9" fill="#555" text-anchor="middle">&rarr; Differentiable IDCT</text>
+
+          <path d="M 350 85 L 390 85" stroke="#333" stroke-width="1.5"/>
+
+          <!-- Fork into Two Losses -->
+          <!-- Frequency Loss -->
+          <path d="M 390 85 L 390 45 L 420 45" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <rect x="420" y="18" width="160" height="55" fill="#fdfaf2" stroke="#f39c12" rx="4"/>
+          <text x="500" y="42" font-size="11" font-weight="bold" fill="#b9770e" text-anchor="middle">Frequency Loss (&Lscr;<sub>freq</sub>)</text>
+          <text x="500" y="58" font-size="9" fill="#555" text-anchor="middle">MSE on DCT Coefficients</text>
+
+          <!-- Spatial Pixel Loss -->
+          <path d="M 390 85 L 390 125 L 420 125" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <rect x="420" y="98" width="160" height="55" fill="#eef7fc" stroke="#007bff" rx="4"/>
+          <text x="500" y="122" font-size="11" font-weight="bold" fill="#0056b3" text-anchor="middle">Spatial Pixel Loss (&Lscr;<sub>pixel</sub>)</text>
+          <text x="500" y="138" font-size="9" fill="#555" text-anchor="middle">L1 Difference on Clean Pixels</text>
+
+          <!-- Summing into Total Loss -->
+          <path d="M 580 45 L 610 45 L 610 85 L 625 85" stroke="#333" stroke-width="1.5" fill="none"/>
+          <path d="M 580 125 L 610 125 L 610 85" stroke="#333" stroke-width="1.5" fill="none"/>
+
+          <circle cx="645" cy="85" r="18" fill="#28a745"/>
+          <text x="645" y="90" font-size="16" fill="#fff" font-weight="bold" text-anchor="middle">+</text>
+
+          <rect x="675" y="60" width="38" height="50" fill="#28a745" rx="4"/>
+          <text x="694" y="88" font-size="10" fill="#fff" font-weight="bold" text-anchor="middle">&Lscr;<sub>total</sub></text>
+        </svg>
+      </div>
+
+      <h3 id="hybrid-dual-loss">2. The Dual-Domain Loss Function</h3>
+      <p>The hybrid architecture is supervised in both the spatial pixel domain and the frequency domain at the same time:</p>
+      <div class="math-display-card">
+        <div class="formula">
+          $$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{pixel}} + \lambda \cdot \mathcal{L}_{\text{frequency}}$$
+        </div>
+        <div class="math-caption">Combined Dual-Domain Objective Function where $\lambda$ is a balancing coefficient (typically $\lambda = 0.1$).</div>
+      </div>
+      <p>Expanding the two components:</p>
+      <div class="math-display-card">
+        <div class="formula">
+          $$\mathcal{L}_{\text{pixel}} = \frac{1}{N} \sum_{p=1}^{N} \left| \hat{I}(p) - I_{\text{clean}}(p) \right|, \quad \mathcal{L}_{\text{frequency}} = \frac{1}{|\Omega_{\text{high}}|} \sum_{i \in \Omega_{\text{high}}} \left( \hat{C}_i - C_i^{\text{true}} \right)^2$$
+        </div>
+        <div class="math-caption">$\mathcal{L}_{\text{pixel}}$ drives seamless boundary reconstruction, while $\mathcal{L}_{\text{frequency}}$ enforces mathematical harmonic decay.</div>
+      </div>
+
+      <div class="beginner-callout">
+        <strong>💡 Plain-English Meaning of Dual-Domain Loss:</strong>
+        <p>This gives the hybrid model a two-part test:</p>
+        <ol style="margin-left: 20px; margin-bottom: 0;">
+          <li><strong>Test 1 ($\mathcal{L}_{\text{pixel}}$):</strong> Does the reconstructed photo look sharp, realistic, and free of blocky grid seams to human eyes?</li>
+          <li><strong>Test 2 ($\mathcal{L}_{\text{frequency}}$):</strong> Did it obey the mathematical rules of frequency harmonics?</li>
+        </ol>
+        <p style="margin-top: 6px; margin-bottom: 0;">Because the model has to pass both tests simultaneously, it produces much better results than any single model alone!</p>
+      </div>
+
+      <h3 id="hybrid-training-process">3. How to Actually Train the Hybrid Model (Step-by-Step)</h3>
+      <div class="step-box">
+        <h4>Detailed Hybrid Training Walkthrough:</h4>
+        <ol>
+          <li><strong>Unified Forward Pass:</strong>
+            <ul>
+              <li>The input image patch $X$ passes through the CNN, generating local feature maps $F \in \mathbb{R}^{B \times C \times H' \times W'}$.</li>
+              <li>A graph projection layer transforms each spatial block's feature vector into node states in a graph.</li>
+              <li>The GNN performs message passing over harmonic links and boundary seam links.</li>
+              <li>The network outputs predicted DCT coefficients $\hat{C}$.</li>
+              <li>A differentiable 2D-IDCT layer in PyTorch converts $\hat{C}$ into spatial image $\hat{I}$.</li>
+            </ul>
+          </li>
+          <li><strong>Dual-Domain Loss Computation:</strong>
+            <ul>
+              <li>Calculate $\mathcal{L}_{\text{pixel}} = \text{mean}(|\hat{I} - I_{\text{clean}}|)$ to enforce clean visual borders.</li>
+              <li>Calculate $\mathcal{L}_{\text{frequency}} = \text{mean}((\hat{C} - C_{\text{true}})^2)$ on missing frequencies.</li>
+              <li>Calculate combined loss: $\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{pixel}} + 0.1 \times \mathcal{L}_{\text{frequency}}$.</li>
+            </ul>
+          </li>
+          <li><strong>Joint Gradient Flow:</strong> When calling <code>total_loss.backward()</code>, gradients flow through the differentiable IDCT, through the GNN, through the graph adapter, and into the CNN feature extractor simultaneously.</li>
+        </ol>
+      </div>
+
+      <p><strong>Executable PyTorch Hybrid Training Loop:</strong></p>
+      <pre><code># Joint Training Loop for Hybrid Model (CNN + GNN)
+optimizer = torch.optim.Adam(hybrid_model.parameters(), lr=1e-4)
+
+for epoch in range(num_epochs):
+    for batch_images, batch_true_freqs, batch_clean_images in dataloader:
+        optimizer.zero_grad()
+        
+        # 1. Forward Pass: CNN extracts features -> GNN reasons -> IDCT rebuilds image
+        pred_image, pred_freqs = hybrid_model(batch_images)
+        
+        # 2. Pixel Domain Error (Forces edge sharpness and seam removal)
+        loss_pixel = torch.mean(torch.abs(pred_image - batch_clean_images))
+        
+        # 3. Frequency Domain Error (Forces harmonic accuracy)
+        loss_freq = torch.mean((pred_freqs - batch_true_freqs) ** 2)
+        
+        # 4. Total Dual-Domain Objective
+        total_loss = loss_pixel + 0.1 * loss_freq
+        
+        # 5. Backpropagate through BOTH architectures at the same time
+        total_loss.backward()
+        optimizer.step()
+        
+    print(f"Epoch {epoch}: Total Loss = {total_loss.item():.4f}")</code></pre>
+    </section>
+
+    <!-- 6. SUMMARY MATRIX -->
+    <section id="summary-matrix">
+      <h2>6. Training Summary Matrix</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Training Parameter</th>
+            <th>Pure CNN</th>
+            <th>Pure GNN</th>
+            <th>Hybrid (CNN + GNN)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Input Tensor Format</strong></td>
+            <td>4D Tensors $[B, C, H, W]$</td>
+            <td>Graph Objects ($X$, $\mathcal{E}$)</td>
+            <td>Image Tensors $\rightarrow$ Graph Batches</td>
+          </tr>
+          <tr>
+            <td><strong>Ground Truth Target</strong></td>
+            <td>Clean spatial image patch</td>
+            <td>True missing DCT amplitudes</td>
+            <td>Both clean image &amp; true DCT values</td>
+          </tr>
+          <tr>
+            <td><strong>Loss Function Domain</strong></td>
+            <td>Spatial pixel domain only</td>
+            <td>Frequency domain only</td>
+            <td><strong>Dual-Domain</strong> (Spatial + Frequency)</td>
+          </tr>
+          <tr>
+            <td><strong>Mathematical Objective</strong></td>
+            <td>$\|\hat{I} - I_{\text{clean}}\|_1$</td>
+            <td>$\sum_{i \in \text{high}} (\hat{C}_i - C_i^{\text{true}})^2$</td>
+            <td>$\|\hat{I} - I_{\text{clean}}\|_1 + \lambda \|\hat{C} - C^{\text{true}}\|_2^2$</td>
+          </tr>
+          <tr>
+            <td><strong>Required Libraries</strong></td>
+            <td>Standard PyTorch</td>
+            <td>PyTorch + PyG (PyTorch Geometric)</td>
+            <td>PyTorch + PyG</td>
+          </tr>
+          <tr>
+            <td><strong>Training Speed</strong></td>
+            <td>⚡ Very Fast</td>
+            <td>⚡ Fast (small 64-node graphs)</td>
+            <td>⏱ Moderate</td>
+          </tr>
+          <tr>
+            <td><strong>Reconstruction Metric</strong></td>
+            <td>High PSNR</td>
+            <td>Moderate – Good PSNR</td>
+            <td>🏆 <strong>Highest PSNR &amp; SSIM</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 7. WHERE TO START -->
+    <section id="where-to-start">
+      <h2>7. Where to Start: Immediate Coding Steps for the Team</h2>
+      <div class="note-box">
+        <strong>Recommended Starting Path (Phase 1 Assignment Submission):</strong>
+        <ol style="margin-top: 8px;">
+          <li><strong>Step 1: Write the Preprocessing Script:</strong> Load standard benchmark images (Lena, Cameraman, or BSDS), chop into $8 \times 8$ blocks, apply SciPy/PyTorch <code>dctn()</code>, and zero-out frequencies beyond cutoff radius $R$.</li>
+          <li><strong>Step 2: Measure Classical Baseline:</strong> Run <code>idctn()</code> on the zero-padded blocks and record the baseline PSNR (usually around 24–27 dB).</li>
+          <li><strong>Step 3: Build the PyTorch Geometric Dataset:</strong> Create graph data objects where nodes represent the 64 coefficients and edges link $(u, v)$ to $(2u, 2v)$.</li>
+          <li><strong>Step 4: Train a 3-Layer GCN/GAT:</strong> Train the GNN on missing nodes using the node-level MSE loss.</li>
+          <li><strong>Step 5: Compare:</strong> Run IDCT on the predicted coefficients and measure the PSNR gain over the baseline (target: $+1.5\text{ to }+3.0\text{ dB}$ gain!).</li>
+        </ol>
+      </div>
+    </section>
+  </main>
+
+</body>
+</html>

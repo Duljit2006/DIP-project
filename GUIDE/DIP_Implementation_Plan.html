@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DIP Project: Complete Implementation Plan</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$']], displayMath: [['$$', '$$']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      line-height: 1.7; color: #222; background: #fff; display: flex;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      width: 300px; height: 100vh; position: sticky; top: 0;
+      background: #fafafa; border-right: 1px solid #e5e5e5;
+      padding: 24px 16px; overflow-y: auto; flex-shrink: 0;
+    }
+    #sidebar h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.8px; color: #555; margin-bottom: 14px; }
+    #sidebar ul { list-style: none; }
+    #sidebar li { margin-bottom: 8px; }
+    #sidebar a { color: #0056b3; text-decoration: none; font-size: 0.9rem; display: block; padding: 3px 8px; border-radius: 4px; }
+    #sidebar a:hover { background: #eaeaea; text-decoration: underline; }
+    #sidebar .sub { padding-left: 16px; font-size: 0.83rem; color: #444; }
+    #sidebar .her-tag { color: #6f42c1; font-weight: 600; }
+    #sidebar .my-tag { color: #0d6efd; font-weight: 600; }
+    #sidebar .both-tag { color: #198754; font-weight: 600; }
+
+    /* Main */
+    #content { flex: 1; max-width: 1000px; padding: 36px 50px; }
+    h1 { font-size: 2rem; color: #111; border-bottom: 2px solid #222; padding-bottom: 12px; margin-bottom: 14px; }
+    h2 { font-size: 1.4rem; color: #222; margin-top: 40px; margin-bottom: 14px; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px; }
+    h3 { font-size: 1.12rem; color: #333; margin-top: 22px; margin-bottom: 10px; }
+    h4 { font-size: 1rem; color: #444; margin-top: 16px; margin-bottom: 8px; }
+    p { margin-bottom: 13px; color: #333; }
+    ul, ol { margin-left: 24px; margin-bottom: 14px; }
+    li { margin-bottom: 6px; }
+
+    /* Role Badges */
+    .badge { display: inline-block; padding: 3px 10px; font-size: 0.78rem; font-weight: 700; border-radius: 4px; margin-bottom: 10px; margin-right: 6px; }
+    .badge-her { background: #f3e8ff; color: #6f42c1; border: 1px solid #d4b5ff; }
+    .badge-me { background: #e7f1ff; color: #0d6efd; border: 1px solid #9ec5fe; }
+    .badge-both { background: #d1e7dd; color: #0f5132; border: 1px solid #a3cfbb; }
+    .badge-stage { background: #fff3cd; color: #664d03; border: 1px solid #ffda6a; font-size: 0.82rem; }
+
+    /* File cards */
+    .file-card {
+      background: #f8f9fa; border: 1px solid #dee2e6; border-left: 4px solid #0d6efd;
+      border-radius: 4px; padding: 14px 18px; margin: 12px 0;
+    }
+    .file-card.her-file { border-left-color: #6f42c1; }
+    .file-card.both-file { border-left-color: #198754; }
+    .file-card h4 { margin-top: 0; color: #0d6efd; }
+    .file-card.her-file h4 { color: #6f42c1; }
+    .file-card.both-file h4 { color: #198754; }
+
+    /* Task boxes */
+    .task-box {
+      background: #fdfdfd; border: 1px solid #e2e8f0; border-radius: 6px;
+      padding: 16px 20px; margin: 14px 0;
+    }
+    .task-box h4 { margin-top: 0; font-size: 1.05rem; }
+
+    /* Test & Expected */
+    .test-box {
+      background: #f0f9ff; border-left: 4px solid #0ea5e9; border-radius: 0 4px 4px 0;
+      padding: 12px 16px; margin: 12px 0;
+    }
+    .test-box strong { color: #0369a1; }
+    .expect-box {
+      background: #f0fdf4; border-left: 4px solid #22c55e; border-radius: 0 4px 4px 0;
+      padding: 12px 16px; margin: 12px 0;
+    }
+    .expect-box strong { color: #15803d; }
+
+    /* Info Boxes & Callouts */
+    .info-box {
+      background: #fdfaf2; border-left: 4px solid #f59e0b; border-radius: 0 4px 4px 0;
+      padding: 14px 18px; margin: 14px 0;
+    }
+    .info-box strong { color: #b45309; }
+
+    .welcome-card {
+      background: #fdf8ff;
+      border: 1.5px solid #d8b4fe;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 20px 0 26px 0;
+    }
+    .welcome-card h3 {
+      color: #6f42c1;
+      margin-top: 0;
+      font-size: 1.25rem;
+    }
+
+    .beginner-guide-box {
+      background: #faf5ff;
+      border: 1px solid #e9d5ff;
+      border-left: 4px solid #9333ea;
+      border-radius: 0 6px 6px 0;
+      padding: 14px 18px;
+      margin: 14px 0 16px 0;
+    }
+    .beginner-guide-box strong {
+      color: #7e22ce;
+      display: inline-block;
+      margin-bottom: 4px;
+      font-size: 0.96rem;
+    }
+
+    /* Code */
+    pre {
+      background: #282c34; color: #abb2bf; padding: 14px; border-radius: 6px;
+      overflow-x: auto; font-family: Consolas, Monaco, monospace; font-size: 0.88rem; margin: 12px 0;
+    }
+    pre code { background: transparent; padding: 0; color: inherit; }
+    code { font-family: Consolas, Monaco, monospace; background: #f1f1f1; padding: 1px 4px; border-radius: 3px; font-size: 0.88em; }
+
+    /* Clean Folder Tree Component */
+    .folder-tree {
+      background: #fdfdfd;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 18px 0;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.95rem;
+      line-height: 1.8;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .tree-row {
+      display: flex;
+      align-items: center;
+      padding: 3px 0;
+    }
+    .tree-row:hover {
+      background: #f7fafc;
+    }
+    .tree-indent-0 { padding-left: 0px; }
+    .tree-indent-1 { padding-left: 24px; }
+    .tree-indent-2 { padding-left: 48px; }
+    .tree-indent-3 { padding-left: 72px; }
+    .tree-icon {
+      margin-right: 8px;
+      font-size: 1.05rem;
+    }
+    .tree-name {
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .tree-file {
+      font-weight: 500;
+      color: #334155;
+    }
+    .tree-spacer {
+      flex: 1;
+      border-bottom: 1px dotted #cbd5e1;
+      margin: 0 14px;
+      min-width: 20px;
+    }
+    .tree-desc {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 0.86rem;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.92rem; }
+    th, td { border: 1px solid #dcdcdc; padding: 10px 14px; text-align: left; }
+    th { background: #f4f4f4; font-weight: 600; }
+    tr:nth-child(even) { background: #fafafa; }
+
+    /* Diagrams */
+    .diagram-container {
+      background: #fdfdfd; border: 1px solid #dcdcdc; border-radius: 6px;
+      padding: 20px; margin: 20px 0; text-align: center;
+    }
+    .diagram-title { font-size: 0.9rem; font-weight: bold; color: #555; margin-bottom: 10px; text-align: left; }
+    svg { max-width: 100%; height: auto; }
+
+    /* Math */
+    .math-display-card {
+      background: #fafafa; border: 1px solid #e2e8f0; border-radius: 6px;
+      padding: 14px 18px; margin: 14px 0; text-align: center;
+    }
+    .math-caption { font-size: 0.85rem; color: #666; margin-top: 6px; }
+
+    /* Summary Box */
+    .summary-card {
+      background: #f8f9fa; border: 2px solid #dee2e6; border-radius: 8px;
+      padding: 20px 24px; margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+
+<nav id="sidebar">
+  <h3>Implementation Plan</h3>
+  <ul>
+    <li><a href="#welcome">👋 Welcome Note for Her</a></li>
+    <li><a href="#summary">Project Summary</a></li>
+    <li><a href="#roles">Team Roles &amp; Files</a></li>
+    <li><a href="#folder">Folder Structure</a></li>
+    <li><a href="#stage0">Stage 0: Setup</a>
+      <ul>
+        <li><a class="sub both-tag" href="#s0-both">Both: Environment Setup</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage1">Stage 1: Data Foundation</a>
+      <ul>
+        <li><a class="sub her-tag" href="#s1-her">Her: dct_utils.py</a></li>
+        <li><a class="sub my-tag" href="#s1-me">You: dataset.py</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage2">Stage 2: Baseline &amp; Graph</a>
+      <ul>
+        <li><a class="sub her-tag" href="#s2-her">Her: metrics.py</a></li>
+        <li><a class="sub my-tag" href="#s2-me">You: graph_builder.py</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage3">Stage 3: GNN Model</a>
+      <ul>
+        <li><a class="sub my-tag" href="#s3-me">You: models.py</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage4">Stage 4: Training</a>
+      <ul>
+        <li><a class="sub my-tag" href="#s4-me">You: train.py</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage5">Stage 5: Evaluation</a>
+      <ul>
+        <li><a class="sub her-tag" href="#s5-her">Her: evaluate.py</a></li>
+        <li><a class="sub her-tag" href="#s5-plots">Her: Visualizations</a></li>
+      </ul>
+    </li>
+    <li><a href="#stage6">Stage 6: Integration</a>
+      <ul>
+        <li><a class="sub both-tag" href="#s6-both">Both: Final Pipeline</a></li>
+      </ul>
+    </li>
+    <li><a href="#timeline">Timeline Schedule</a></li>
+    <li><a href="#colab">How to Run on Colab</a></li>
+  </ul>
+</nav>
+
+<main id="content">
+  <h1>GNN-Based DCT Coefficient Prediction: Complete Implementation Plan</h1>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- WELCOME NOTE FOR HER -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="welcome">
+    <div class="welcome-card">
+      <h3>👋 Welcome to the Team! (A Quick Note for You)</h3>
+      <p>Hello! If you are new to AI/ML or haven't worked with advanced tools like GitHub, Google Colab, or Graph Neural Networks before, <strong>please don't worry at all</strong>. This project is structured so that you will feel comfortable from Day 1.</p>
+      
+      <p style="margin-bottom: 8px;"><strong>Here is how we divided our project to make everything easy and fun:</strong></p>
+      <ul style="margin-bottom: 10px;">
+        <li><strong>No GPU needed on your laptop:</strong> All of your tasks run standard Python scripts using basic libraries (OpenCV, NumPy, SciPy) and finish in under 1 second on any normal laptop CPU.</li>
+        <li><strong>No complex GitHub knowledge required:</strong> If Git ever feels tricky, you can simply write your Python files and send them over via WhatsApp, Google Drive, or email. I will handle integrating them!</li>
+        <li><strong>No complex neural network training on your end:</strong> I will handle the Graph Neural Network architecture and train it using cloud GPUs (Google Colab).</li>
+        <li><strong>Your crucial contribution:</strong> You are our <em>Digital Image Processing &amp; Evaluation Lead</em>. You will handle taking real photos, cutting them into $8 \times 8$ tiles, measuring our baseline scores (PSNR/SSIM), and creating the comparison pictures for our final presentation.</li>
+      </ul>
+      <p style="margin-bottom: 0;">Whenever you see a purple badge (<span class="badge badge-her" style="margin:0;">HER WORK</span>), that section has a simple step-by-step guide with ready-to-use starter code written specially for you!</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- PROJECT SUMMARY -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="summary">
+    <h2>Project Summary</h2>
+
+    <div class="summary-card">
+      <h3>What We Are Building</h3>
+      <p>A Graph Neural Network (GNN) that predicts missing high-frequency DCT coefficients from preserved low-frequency coefficients, producing sharper and cleaner reconstructed images compared to standard zero-padded Inverse DCT.</p>
+
+      <h3 style="margin-top:14px;">The 6 Key Steps</h3>
+      <ol>
+        <li><strong>Setup:</strong> Create the repository, install Python libraries, download datasets.</li>
+        <li><strong>Data Foundation:</strong> Write the image slicing and DCT conversion pipeline.</li>
+        <li><strong>Baseline &amp; Graph:</strong> Measure zero-padded IDCT baseline scores, and build the frequency graph for PyTorch Geometric.</li>
+        <li><strong>GNN Model:</strong> Design and code the GCN/GAT architecture.</li>
+        <li><strong>Training:</strong> Train the GNN on BSDS500 images using Google Colab's free GPU.</li>
+        <li><strong>Evaluation:</strong> Compare GNN reconstruction vs. baseline using PSNR, SSIM, and visual error maps on Set5/Set14.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- TEAM ROLES -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="roles">
+    <h2>Team Roles &amp; Responsibility Map</h2>
+
+    <div class="diagram-container">
+      <div class="diagram-title">Work Ownership Diagram</div>
+      <svg viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/>
+          </marker>
+        </defs>
+
+        <!-- HER BLOCK -->
+        <rect x="10" y="15" width="310" height="170" rx="6" fill="#f8f0ff" stroke="#6f42c1" stroke-width="1.5"/>
+        <text x="165" y="40" font-size="13" font-weight="bold" fill="#6f42c1" text-anchor="middle">TEAMMATE (Her Work)</text>
+        <text x="165" y="58" font-size="9" fill="#888" text-anchor="middle">CPU Only &bull; Classical DIP &bull; No Deep Learning</text>
+        <text x="30" y="82" font-size="11" fill="#333">1. dct_utils.py &mdash; 8&times;8 DCT, IDCT, Truncation</text>
+        <text x="30" y="104" font-size="11" fill="#333">2. metrics.py &mdash; PSNR, SSIM Functions</text>
+        <text x="30" y="126" font-size="11" fill="#333">3. evaluate.py &mdash; Baseline &amp; Final Benchmark</text>
+        <text x="30" y="148" font-size="11" fill="#333">4. Visualization &mdash; Side-by-Side Images</text>
+        <text x="30" y="170" font-size="11" fill="#333">5. Error Heatmaps &amp; Plots</text>
+
+        <!-- Arrow connecting -->
+        <path d="M 320 100 L 370 100" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <text x="345" y="92" font-size="9" fill="#666" text-anchor="middle">Data &amp;</text>
+        <text x="345" y="108" font-size="9" fill="#666" text-anchor="middle">Metrics</text>
+
+        <!-- MY BLOCK -->
+        <rect x="370" y="15" width="310" height="170" rx="6" fill="#e7f1ff" stroke="#0d6efd" stroke-width="1.5"/>
+        <text x="525" y="40" font-size="13" font-weight="bold" fill="#0d6efd" text-anchor="middle">YOU (Your Work)</text>
+        <text x="525" y="58" font-size="9" fill="#888" text-anchor="middle">GPU (Colab) &bull; Graph Neural Network &bull; PyTorch</text>
+        <text x="390" y="82" font-size="11" fill="#333">1. dataset.py &mdash; PyG Graph Dataset Loader</text>
+        <text x="390" y="104" font-size="11" fill="#333">2. graph_builder.py &mdash; Nodes &amp; Harmonic Edges</text>
+        <text x="390" y="126" font-size="11" fill="#333">3. models.py &mdash; GCN / GAT Architecture</text>
+        <text x="390" y="148" font-size="11" fill="#333">4. train.py &mdash; Training Loop &amp; Orchestrator</text>
+        <text x="390" y="170" font-size="11" fill="#333">5. Integration &amp; Colab GPU Training</text>
+      </svg>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Owner</th>
+          <th>Needs GPU?</th>
+          <th>Core Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>src/dct_utils.py</code></td><td><span class="badge badge-her">HER</span></td><td>No</td><td>8&times;8 block slicing, 2D-DCT, truncation mask, 2D-IDCT</td></tr>
+        <tr><td><code>src/metrics.py</code></td><td><span class="badge badge-her">HER</span></td><td>No</td><td>PSNR and SSIM calculation functions</td></tr>
+        <tr><td><code>src/graph_builder.py</code></td><td><span class="badge badge-me">YOU</span></td><td>No</td><td>Build PyTorch Geometric graph (nodes, edges, masks)</td></tr>
+        <tr><td><code>src/dataset.py</code></td><td><span class="badge badge-me">YOU</span></td><td>No</td><td>PyG DataLoader wrapping her DCT blocks into graph batches</td></tr>
+        <tr><td><code>src/models.py</code></td><td><span class="badge badge-me">YOU</span></td><td>No (build), Yes (train)</td><td>GNN architecture definition (GCNConv / GATConv layers)</td></tr>
+        <tr><td><code>train.py</code></td><td><span class="badge badge-me">YOU</span></td><td>Yes (Colab)</td><td>Orchestrator: loads data, trains model, saves weights</td></tr>
+        <tr><td><code>evaluate.py</code></td><td><span class="badge badge-her">HER</span></td><td>No</td><td>Loads saved model, runs inference, computes PSNR/SSIM, generates plots</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- FOLDER STRUCTURE -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="folder">
+    <h2>Project Folder Structure</h2>
+    <p>Here is the exact project layout with file ownership and descriptions clearly organized:</p>
+
+    <div class="folder-tree">
+      <!-- Root -->
+      <div class="tree-row tree-indent-0">
+        <span class="tree-icon">📁</span>
+        <span class="tree-name">DIP-Assignment/</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">Root project folder</span>
+      </div>
+
+      <!-- datasets -->
+      <div class="tree-row tree-indent-1">
+        <span class="tree-icon">📁</span>
+        <span class="tree-name">datasets/</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">All image datasets</span>
+      </div>
+      <div class="tree-row tree-indent-2">
+        <span class="tree-icon">📁</span>
+        <span class="tree-name">BSDS500/</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">Berkeley dataset (500 images)</span>
+      </div>
+      <div class="tree-row tree-indent-3">
+        <span class="tree-icon">📁</span>
+        <span class="tree-file">train/</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">200 images for model training</span>
+      </div>
+      <div class="tree-row tree-indent-3">
+        <span class="tree-icon">📁</span>
+        <span class="tree-file">val/</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">100 images for validation</span>
+      </div>
+      <div class="tree-row tree-indent-3">
+        <span class="tree-icon">📁</span>
+        <span class="tree-file">test/</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">200 images for testing</span>
+      </div>
+      <div class="tree-row tree-indent-2">
+        <span class="tree-icon">📁</span>
+        <span class="tree-name">Set5/</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">5 images (standard benchmark for PSNR reporting)</span>
+      </div>
+      <div class="tree-row tree-indent-2">
+        <span class="tree-icon">📁</span>
+        <span class="tree-name">Set14/</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">14 images (standard benchmark for PSNR reporting)</span>
+      </div>
+
+      <!-- src -->
+      <div class="tree-row tree-indent-1" style="margin-top: 6px;">
+        <span class="tree-icon">📁</span>
+        <span class="tree-name">src/</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">Core source code package</span>
+      </div>
+      <div class="tree-row tree-indent-2">
+        <span class="tree-icon">📄</span>
+        <span class="tree-file">__init__.py</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">Empty package initializer</span>
+      </div>
+      <div class="tree-row tree-indent-2">
+        <span class="tree-icon">📄</span>
+        <span class="tree-file">dct_utils.py</span>
+        <span class="tree-spacer"></span>
+        <span class="badge badge-her" style="margin:0 6px 0 0;">HER</span>
+        <span class="tree-desc">Classical 8&times;8 DCT, IDCT, and truncation functions</span>
+      </div>
+      <div class="tree-row tree-indent-2">
+        <span class="tree-icon">📄</span>
+        <span class="tree-file">metrics.py</span>
+        <span class="tree-spacer"></span>
+        <span class="badge badge-her" style="margin:0 6px 0 0;">HER</span>
+        <span class="tree-desc">PSNR and SSIM metric calculations</span>
+      </div>
+      <div class="tree-row tree-indent-2">
+        <span class="tree-icon">📄</span>
+        <span class="tree-file">graph_builder.py</span>
+        <span class="tree-spacer"></span>
+        <span class="badge badge-me" style="margin:0 6px 0 0;">YOU</span>
+        <span class="tree-desc">Constructs 64-node frequency harmonic graph</span>
+      </div>
+      <div class="tree-row tree-indent-2">
+        <span class="tree-icon">📄</span>
+        <span class="tree-file">dataset.py</span>
+        <span class="tree-spacer"></span>
+        <span class="badge badge-me" style="margin:0 6px 0 0;">YOU</span>
+        <span class="tree-desc">PyTorch Geometric graph dataset &amp; DataLoader</span>
+      </div>
+      <div class="tree-row tree-indent-2">
+        <span class="tree-icon">📄</span>
+        <span class="tree-file">models.py</span>
+        <span class="tree-spacer"></span>
+        <span class="badge badge-me" style="margin:0 6px 0 0;">YOU</span>
+        <span class="tree-desc">GNN architecture (GCN/GAT layers)</span>
+      </div>
+
+      <!-- Root scripts -->
+      <div class="tree-row tree-indent-1" style="margin-top: 6px;">
+        <span class="tree-icon">🚀</span>
+        <span class="tree-file">train.py</span>
+        <span class="tree-spacer"></span>
+        <span class="badge badge-me" style="margin:0 6px 0 0;">YOU</span>
+        <span class="tree-desc">Main training orchestrator (runs on GPU / Colab)</span>
+      </div>
+      <div class="tree-row tree-indent-1">
+        <span class="tree-icon">📊</span>
+        <span class="tree-file">evaluate.py</span>
+        <span class="tree-spacer"></span>
+        <span class="badge badge-her" style="margin:0 6px 0 0;">HER</span>
+        <span class="tree-desc">Testing, PSNR evaluation, side-by-side plots</span>
+      </div>
+      <div class="tree-row tree-indent-1">
+        <span class="tree-icon">📋</span>
+        <span class="tree-file">requirements.txt</span>
+        <span class="tree-spacer"></span>
+        <span class="badge badge-both" style="margin:0 6px 0 0;">BOTH</span>
+        <span class="tree-desc">List of all required Python libraries</span>
+      </div>
+      <div class="tree-row tree-indent-1">
+        <span class="tree-icon">📝</span>
+        <span class="tree-file">README.md</span>
+        <span class="tree-spacer"></span>
+        <span class="badge badge-both" style="margin:0 6px 0 0;">BOTH</span>
+        <span class="tree-desc">Project documentation and setup guide</span>
+      </div>
+
+      <!-- Output folders -->
+      <div class="tree-row tree-indent-1" style="margin-top: 6px;">
+        <span class="tree-icon">💾</span>
+        <span class="tree-name">checkpoints/</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">Saved model weights (e.g. <code>model.pth</code>)</span>
+      </div>
+      <div class="tree-row tree-indent-1">
+        <span class="tree-icon">🖼️</span>
+        <span class="tree-name">results/</span>
+        <span class="tree-spacer"></span>
+        <span class="tree-desc">Saved comparison images and error heatmaps</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- STAGE 0: SETUP -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="stage0">
+    <h2><span class="badge badge-stage">STAGE 0</span> Environment Setup</h2>
+
+    <div class="task-box" id="s0-both">
+      <span class="badge badge-both">BOTH</span>
+      <h4>Task: Create Repo &amp; Install Dependencies</h4>
+
+      <h4>What to Do:</h4>
+      <ol>
+        <li>Create a GitHub repository (e.g., <code>dip-gnn-dct</code>).</li>
+        <li>Clone it on both laptops.</li>
+        <li>Create the folder structure shown above.</li>
+        <li>Create <code>requirements.txt</code> with the exact libraries you need.</li>
+        <li>Both run <code>pip install -r requirements.txt</code>.</li>
+      </ol>
+
+      <h4>The <code>requirements.txt</code> File:</h4>
+      <pre><code># Core
+numpy
+scipy
+opencv-python
+Pillow
+matplotlib
+
+# Deep Learning (PyTorch)
+torch
+torchvision
+
+# Graph Neural Networks (PyTorch Geometric)
+torch_geometric
+
+# Image Quality Metrics
+scikit-image</code></pre>
+
+      <h4>How to Install:</h4>
+      <div class="beginner-guide-box">
+        <strong>💡 Note for Her (Super Easy Setup):</strong>
+        <p style="margin-bottom:0;">Open your regular terminal or Anaconda prompt, copy-paste the line below, and press Enter. That's all! You do not need to install complicated GPU packages.</p>
+      </div>
+      <pre><code># Run this in your terminal:
+pip install -r requirements.txt</code></pre>
+
+      <div class="info-box">
+        <strong>Good to know:</strong> You do NOT need to install <code>torch_geometric</code> on your laptop because you are working on the classical image processing and evaluation side. Standard <code>numpy</code>, <code>scipy</code>, <code>opencv-python</code>, and <code>scikit-image</code> are all you need!
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- STAGE 1: DATA FOUNDATION -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="stage1">
+    <h2><span class="badge badge-stage">STAGE 1</span> Data Foundation (Parallel Work Begins!)</h2>
+    <p>In this stage, both of you begin working <strong>simultaneously</strong>. She builds the classical DCT pipeline while you build the graph data loader.</p>
+
+    <!-- HER TASK -->
+    <div class="file-card her-file" id="s1-her">
+      <span class="badge badge-her">HER WORK</span>
+      <h4>File: <code>src/dct_utils.py</code></h4>
+
+      <div class="beginner-guide-box">
+        <strong>💡 Plain-English Guide (What I Expect From You Here):</strong>
+        <p>In this step, all I need from you is to write 3 straightforward Python functions in a file named <code>src/dct_utils.py</code>:</p>
+        <ol style="margin-left: 20px; margin-bottom: 6px;">
+          <li><strong>Function 1:</strong> Open an image and chop it into a grid of tiny $8 \times 8$ pixel squares.</li>
+          <li><strong>Function 2:</strong> Convert those squares to frequencies (using standard <code>scipy.fft.dctn</code>) and zero out the high-frequency numbers. This mimics what JPEG compression does!</li>
+          <li><strong>Function 3:</strong> Take those frequency numbers and turn them back into a picture (using <code>scipy.fft.idctn</code>).</li>
+        </ol>
+        <p style="margin-bottom:0;">You don't have to write this from scratch—the full starter code is ready below for you to use and test!</p>
+      </div>
+
+      <h4>What to Do:</h4>
+      <p>Write three core functions that handle all classical image-to-frequency conversion:</p>
+
+      <h4>Function 1: <code>load_and_slice(image_path)</code></h4>
+      <ul>
+        <li><strong>Purpose:</strong> Reads an image, converts to grayscale, crops dimensions to multiples of 8, and slices into $8 \times 8$ pixel blocks.</li>
+        <li><strong>Library:</strong> <code>cv2.imread(path, cv2.IMREAD_GRAYSCALE)</code> from OpenCV.</li>
+        <li><strong>Input:</strong> File path string (e.g., <code>"datasets/Set5/baby.png"</code>).</li>
+        <li><strong>Output:</strong> A NumPy array of shape <code>(num_blocks, 8, 8)</code> containing all pixel blocks.</li>
+      </ul>
+      <pre><code># Pseudocode:
+def load_and_slice(image_path):
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = img.astype(np.float32) / 255.0  # Normalize to 0-1
+    
+    h, w = img.shape
+    h, w = (h // 8) * 8, (w // 8) * 8  # Crop to multiple of 8
+    img = img[:h, :w]
+    
+    blocks = []
+    for r in range(0, h, 8):
+        for c in range(0, w, 8):
+            blocks.append(img[r:r+8, c:c+8])
+    
+    return np.array(blocks), (h, w)  # Return blocks + original dimensions</code></pre>
+
+      <h4>Function 2: <code>apply_dct_and_truncate(blocks, cutoff=15)</code></h4>
+      <ul>
+        <li><strong>Purpose:</strong> Applies 2D-DCT to each block, saves the full coefficient matrix (ground truth $Y$), and creates a truncated version (input $X$) by zeroing out high frequencies.</li>
+        <li><strong>Library:</strong> <code>scipy.fft.dctn(block, norm='ortho')</code>.</li>
+        <li><strong>Cutoff Strategy:</strong> Use a zigzag scan order. Keep the first <code>cutoff</code> coefficients in zigzag order, set the rest to 0.</li>
+        <li><strong>Output:</strong> Two arrays: <code>X_truncated</code> (input) and <code>Y_full</code> (ground truth), both shape <code>(num_blocks, 64)</code>.</li>
+      </ul>
+      <pre><code># Pseudocode:
+from scipy.fft import dctn
+
+def get_zigzag_indices():
+    """Returns the zigzag scan order for an 8x8 block as a list of (row, col) pairs."""
+    # Standard JPEG zigzag order for 8x8
+    indices = []
+    for s in range(15):  # sum of (row + col) goes from 0 to 14
+        if s % 2 == 0:
+            for i in range(min(s, 7), max(0, s - 7) - 1, -1):
+                indices.append((i, s - i))
+        else:
+            for i in range(max(0, s - 7), min(s, 7) + 1):
+                indices.append((i, s - i))
+    return indices
+
+def apply_dct_and_truncate(blocks, cutoff=15):
+    zigzag = get_zigzag_indices()
+    X_list, Y_list = [], []
+    
+    for block in blocks:
+        dct_block = dctn(block, norm='ortho')
+        Y_flat = dct_block.flatten()
+        
+        # Create truncated version
+        X_block = np.zeros_like(dct_block)
+        for idx in range(cutoff):
+            r, c = zigzag[idx]
+            X_block[r, c] = dct_block[r, c]
+        X_flat = X_block.flatten()
+        
+        X_list.append(X_flat)
+        Y_list.append(Y_flat)
+    
+    return np.array(X_list), np.array(Y_list)</code></pre>
+
+      <h4>Function 3: <code>reconstruct_from_dct(dct_blocks_flat, image_shape)</code></h4>
+      <ul>
+        <li><strong>Purpose:</strong> Takes a set of 64-length DCT coefficient vectors, reshapes each to $8 \times 8$, applies Inverse DCT (IDCT), and stitches the blocks back into a full image.</li>
+        <li><strong>Library:</strong> <code>scipy.fft.idctn(block, norm='ortho')</code>.</li>
+        <li><strong>Output:</strong> A full 2D grayscale image array.</li>
+      </ul>
+      <pre><code># Pseudocode:
+from scipy.fft import idctn
+
+def reconstruct_from_dct(dct_blocks_flat, image_shape):
+    h, w = image_shape
+    img = np.zeros((h, w), dtype=np.float32)
+    idx = 0
+    for r in range(0, h, 8):
+        for c in range(0, w, 8):
+            block_flat = dct_blocks_flat[idx]
+            block_2d = block_flat.reshape(8, 8)
+            img[r:r+8, c:c+8] = idctn(block_2d, norm='ortho')
+            idx += 1
+    return np.clip(img, 0, 1)  # Clip to valid pixel range</code></pre>
+
+      <div class="test-box">
+        <strong>How to Test (Her):</strong>
+        <ol>
+          <li>Load one image from Set5 (e.g., <code>baby.png</code>).</li>
+          <li>Slice into blocks, apply DCT, truncate, then reconstruct with IDCT.</li>
+          <li>Display the original vs. the reconstructed image using <code>matplotlib.pyplot.imshow()</code>.</li>
+          <li>The reconstructed image should look blurry with visible $8 \times 8$ grid blocks.</li>
+        </ol>
+      </div>
+
+      <div class="expect-box">
+        <strong>Expected Result:</strong>
+        <p>The IDCT-reconstructed image is noticeably blurry and has square block lines. This proves the truncation is working correctly. This is the <strong>baseline</strong> that the GNN will try to beat!</p>
+      </div>
+    </div>
+
+    <!-- MY TASK -->
+    <div class="file-card" id="s1-me">
+      <span class="badge badge-me">YOUR WORK</span>
+      <h4>File: <code>src/dataset.py</code></h4>
+
+      <h4>What to Do:</h4>
+      <p>Write a PyTorch Geometric <code>Dataset</code> class that loads images from a folder, calls the DCT functions (from her <code>dct_utils.py</code> or your own temporary version), converts each $8 \times 8$ block into a graph object, and serves them via a DataLoader.</p>
+
+      <h4>While She Builds Her Code, Use This Temporary Shortcut:</h4>
+      <p>During parallel development, just generate dummy random blocks to test your graph pipeline:</p>
+      <pre><code># Temporary dummy data while she builds dct_utils.py:
+dummy_Y = np.random.randn(1000, 64).astype(np.float32)  # 1000 fake full blocks
+dummy_X = dummy_Y.copy()
+dummy_X[:, 15:] = 0.0  # Zero out high frequencies</code></pre>
+
+      <h4>The Real Dataset Class:</h4>
+      <pre><code># src/dataset.py
+import torch
+from torch_geometric.data import Data, Dataset
+from src.graph_builder import build_frequency_graph  # Your own file (Stage 2)
+
+class DCTGraphDataset(Dataset):
+    def __init__(self, X_blocks, Y_blocks, cutoff=15):
+        """
+        X_blocks: (N, 64) truncated DCT coefficients
+        Y_blocks: (N, 64) full ground truth DCT coefficients
+        cutoff: number of preserved low-frequency coefficients
+        """
+        super().__init__()
+        self.X = torch.tensor(X_blocks, dtype=torch.float32)
+        self.Y = torch.tensor(Y_blocks, dtype=torch.float32)
+        self.cutoff = cutoff
+        self.edge_index = build_frequency_graph()  # Built once, shared by all blocks
+
+    def len(self):
+        return len(self.X)
+
+    def get(self, idx):
+        x = self.X[idx]  # (64,) truncated
+        y = self.Y[idx]  # (64,) full ground truth
+
+        # Node features: [value, u_coord/8, v_coord/8]
+        coords = torch.tensor([[i // 8, i % 8] for i in range(64)], dtype=torch.float32) / 8.0
+        node_features = torch.cat([x.unsqueeze(1), coords], dim=1)  # (64, 3)
+
+        # Missing mask: True for high-freq nodes that need prediction
+        missing_mask = torch.zeros(64, dtype=torch.bool)
+        missing_mask[self.cutoff:] = True
+
+        return Data(
+            x=node_features,
+            edge_index=self.edge_index,
+            y=y,
+            missing_mask=missing_mask
+        )</code></pre>
+
+      <div class="test-box">
+        <strong>How to Test (You):</strong>
+        <ol>
+          <li>Create a small dataset with 100 dummy blocks.</li>
+          <li>Wrap it in <code>torch_geometric.loader.DataLoader(dataset, batch_size=32)</code>.</li>
+          <li>Iterate one batch and print <code>batch.x.shape</code>, <code>batch.edge_index.shape</code>, <code>batch.y.shape</code>.</li>
+          <li>Verify shapes make sense (e.g., <code>batch.x.shape = [2048, 3]</code> for 32 blocks &times; 64 nodes).</li>
+        </ol>
+      </div>
+
+      <div class="expect-box">
+        <strong>Expected Result:</strong>
+        <p>The DataLoader successfully batches graph objects. Each batch contains node features, edges, targets, and missing masks. No errors = ready for the GNN!</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- STAGE 2: BASELINE & GRAPH -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="stage2">
+    <h2><span class="badge badge-stage">STAGE 2</span> Baseline Measurement &amp; Graph Construction (Still Parallel!)</h2>
+
+    <!-- HER TASK -->
+    <div class="file-card her-file" id="s2-her">
+      <span class="badge badge-her">HER WORK</span>
+      <h4>File: <code>src/metrics.py</code></h4>
+
+      <div class="beginner-guide-box">
+        <strong>💡 Plain-English Guide (What I Expect From You Here):</strong>
+        <p>In this step, all I need from you is to write 2 score-measuring functions in <code>src/metrics.py</code> and check our baseline score:</p>
+        <ol style="margin-left: 20px; margin-bottom: 6px;">
+          <li><strong>Function 1 (PSNR):</strong> A standard formula that gives a quality score in decibels (dB). Higher dB = clearer picture!</li>
+          <li><strong>Function 2 (SSIM):</strong> A similarity score between 0.0 and 1.0. 1.0 means the picture looks 100% identical to the original.</li>
+          <li><strong>Your Experiment:</strong> Run the baseline test at the bottom on Set5 images and write down the numbers. This gives us our benchmark to beat!</li>
+        </ol>
+        <p style="margin-bottom:0;">Libraries like <code>scikit-image</code> do the complex math for you in one line, so this file is very short and simple!</p>
+      </div>
+
+      <h4>What to Do:</h4>
+      <p>Write two standard image quality metric functions and run the baseline evaluation.</p>
+
+      <h4>Function 1: <code>calculate_psnr(original, reconstructed)</code></h4>
+      <ul>
+        <li><strong>Library:</strong> <code>skimage.metrics.peak_signal_noise_ratio</code> from scikit-image, or manual calculation.</li>
+      </ul>
+      <div class="math-display-card">
+        $$\text{PSNR} = 10 \cdot \log_{10} \left( \frac{\text{MAX}^2}{\text{MSE}} \right) \text{ dB}$$
+        <div class="math-caption">Where MAX = 1.0 (for normalized images) and MSE is the mean squared pixel difference.</div>
+      </div>
+
+      <h4>Function 2: <code>calculate_ssim(original, reconstructed)</code></h4>
+      <ul>
+        <li><strong>Library:</strong> <code>skimage.metrics.structural_similarity</code>.</li>
+        <li><strong>Output:</strong> A score between 0 and 1 (1 = perfect match).</li>
+      </ul>
+
+      <pre><code># src/metrics.py
+import numpy as np
+from skimage.metrics import peak_signal_noise_ratio, structural_similarity
+
+def calculate_psnr(original, reconstructed):
+    """Calculate PSNR between two images (both normalized 0-1)."""
+    return peak_signal_noise_ratio(original, reconstructed, data_range=1.0)
+
+def calculate_ssim(original, reconstructed):
+    """Calculate SSIM between two images (both normalized 0-1)."""
+    return structural_similarity(original, reconstructed, data_range=1.0)</code></pre>
+
+      <h4>Run the Baseline Test:</h4>
+      <pre><code># Quick baseline test script (she can run at the bottom of metrics.py or separately):
+from src.dct_utils import load_and_slice, apply_dct_and_truncate, reconstruct_from_dct
+
+img_path = "datasets/Set5/img_001_SRF_2.png"
+blocks, shape = load_and_slice(img_path)
+X_trunc, Y_full = apply_dct_and_truncate(blocks, cutoff=15)
+
+# Baseline: just use the truncated (zero-padded) version
+baseline_img = reconstruct_from_dct(X_trunc, shape)
+
+# Load original for comparison
+original_img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.0
+h, w = shape
+original_img = original_img[:h, :w]
+
+psnr = calculate_psnr(original_img, baseline_img)
+ssim = calculate_ssim(original_img, baseline_img)
+print(f"Baseline PSNR: {psnr:.2f} dB")
+print(f"Baseline SSIM: {ssim:.4f}")</code></pre>
+
+      <div class="test-box">
+        <strong>How to Test (Her):</strong>
+        <p>Run the baseline test on all 5 images in Set5 and all 14 images in Set14. Record PSNR and SSIM for each image in a table.</p>
+      </div>
+
+      <div class="expect-box">
+        <strong>Expected Results (Baseline Scores):</strong>
+        <table>
+          <tr><th>Image</th><th>Expected Baseline PSNR</th><th>Expected Baseline SSIM</th></tr>
+          <tr><td>Set5 Average</td><td>~24 to 28 dB</td><td>~0.75 to 0.85</td></tr>
+          <tr><td>Set14 Average</td><td>~23 to 27 dB</td><td>~0.70 to 0.82</td></tr>
+        </table>
+        <p>These scores will be the <strong>bar that the GNN must beat</strong>.</p>
+      </div>
+    </div>
+
+    <!-- MY TASK -->
+    <div class="file-card" id="s2-me">
+      <span class="badge badge-me">YOUR WORK</span>
+      <h4>File: <code>src/graph_builder.py</code></h4>
+
+      <h4>What to Do:</h4>
+      <p>Define the graph topology: how the 64 frequency nodes in an $8 \times 8$ DCT block are connected.</p>
+
+      <h4>Edge Types to Build:</h4>
+      <ol>
+        <li><strong>Spatial Adjacency Edges:</strong> Connect each node $(u, v)$ to its direct frequency neighbors $(u+1, v)$ and $(u, v+1)$.</li>
+        <li><strong>Harmonic Edges:</strong> Connect lower frequencies to their harmonics: $(u, v) \rightarrow (2u, 2v)$ (if within the $8 \times 8$ grid).</li>
+        <li><strong>Bidirectional:</strong> All edges should be bidirectional (add both directions) so messages flow in both ways.</li>
+      </ol>
+
+      <pre><code># src/graph_builder.py
+import torch
+
+def build_frequency_graph():
+    """
+    Build the edge_index tensor for a single 8x8 DCT frequency block.
+    Returns: edge_index of shape (2, num_edges)
+    """
+    edges = []
+    
+    for u in range(8):
+        for v in range(8):
+            node_id = u * 8 + v  # Flatten 2D (u,v) to 1D index
+            
+            # 1. Spatial neighbor: right (u, v+1)
+            if v + 1 < 8:
+                neighbor_id = u * 8 + (v + 1)
+                edges.append([node_id, neighbor_id])
+                edges.append([neighbor_id, node_id])  # Bidirectional
+            
+            # 2. Spatial neighbor: down (u+1, v)
+            if u + 1 < 8:
+                neighbor_id = (u + 1) * 8 + v
+                edges.append([node_id, neighbor_id])
+                edges.append([neighbor_id, node_id])
+            
+            # 3. Diagonal neighbor: (u+1, v+1)
+            if u + 1 < 8 and v + 1 < 8:
+                neighbor_id = (u + 1) * 8 + (v + 1)
+                edges.append([node_id, neighbor_id])
+                edges.append([neighbor_id, node_id])
+            
+            # 4. Harmonic edge: (u, v) -> (2u, 2v) if in bounds
+            hu, hv = 2 * u, 2 * v
+            if hu < 8 and hv < 8:
+                harmonic_id = hu * 8 + hv
+                if harmonic_id != node_id:
+                    edges.append([node_id, harmonic_id])
+                    edges.append([harmonic_id, node_id])
+    
+    # Remove duplicate edges
+    edge_set = list(set(tuple(e) for e in edges))
+    edge_index = torch.tensor(edge_set, dtype=torch.long).t().contiguous()
+    
+    return edge_index  # Shape: (2, num_edges)</code></pre>
+
+      <div class="test-box">
+        <strong>How to Test (You):</strong>
+        <pre><code>edge_index = build_frequency_graph()
+print(f"Edge index shape: {edge_index.shape}")
+print(f"Number of edges: {edge_index.shape[1]}")
+print(f"Sample edges (first 10): {edge_index[:, :10]}")</code></pre>
+      </div>
+
+      <div class="expect-box">
+        <strong>Expected Result:</strong>
+        <p>Edge index shape should be approximately <code>(2, 500-700)</code> (the exact count depends on how many harmonic pairs exist within the $8 \times 8$ grid). Node indices should range from 0 to 63.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- STAGE 3: GNN MODEL -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="stage3">
+    <h2><span class="badge badge-stage">STAGE 3</span> GNN Model Architecture</h2>
+
+    <div class="file-card" id="s3-me">
+      <span class="badge badge-me">YOUR WORK</span>
+      <h4>File: <code>src/models.py</code></h4>
+
+      <h4>What to Do:</h4>
+      <p>Define the Graph Neural Network model. Start simple with a 3-layer GCN (Graph Convolutional Network) with ReLU activations and a linear output head.</p>
+
+      <pre><code># src/models.py
+import torch
+import torch.nn as nn
+from torch_geometric.nn import GCNConv
+
+class FrequencyGNN(nn.Module):
+    def __init__(self, in_channels=3, hidden_channels=128, num_layers=3):
+        """
+        in_channels: Node feature size (value + u_coord + v_coord = 3)
+        hidden_channels: Width of hidden GNN layers
+        num_layers: Number of GCN message-passing layers
+        """
+        super().__init__()
+        
+        self.convs = nn.ModuleList()
+        self.convs.append(GCNConv(in_channels, hidden_channels))
+        for _ in range(num_layers - 1):
+            self.convs.append(GCNConv(hidden_channels, hidden_channels))
+        
+        # Final linear head: predict 1 scalar (DCT amplitude) per node
+        self.predictor = nn.Linear(hidden_channels, 1)
+        self.relu = nn.ReLU()
+
+    def forward(self, x, edge_index):
+        """
+        x: Node features (num_nodes, 3)
+        edge_index: Graph edges (2, num_edges)
+        Returns: Predicted DCT values for all 64 nodes (num_nodes, 1)
+        """
+        for conv in self.convs:
+            x = self.relu(conv(x, edge_index))
+        
+        out = self.predictor(x)  # (num_nodes, 1)
+        return out.squeeze(-1)   # (num_nodes,)</code></pre>
+
+      <div class="test-box">
+        <strong>How to Test (You):</strong>
+        <pre><code>model = FrequencyGNN(in_channels=3, hidden_channels=128, num_layers=3)
+print(f"Total parameters: {sum(p.numel() for p in model.parameters()):,}")
+
+# Test with dummy batch
+dummy_x = torch.randn(64, 3)  # 1 block = 64 nodes, 3 features each
+dummy_edges = build_frequency_graph()
+output = model(dummy_x, dummy_edges)
+print(f"Output shape: {output.shape}")  # Should be (64,)</code></pre>
+      </div>
+
+      <div class="expect-box">
+        <strong>Expected Result:</strong>
+        <p>Total parameters should be around <strong>50,000 to 70,000</strong> (a lightweight model). Output shape should be <code>(64,)</code> for a single block, meaning the model outputs one predicted DCT value per frequency node.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- STAGE 4: TRAINING -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="stage4">
+    <h2><span class="badge badge-stage">STAGE 4</span> Model Training (GPU / Google Colab)</h2>
+
+    <div class="file-card" id="s4-me">
+      <span class="badge badge-me">YOUR WORK</span>
+      <h4>File: <code>train.py</code> (The Orchestrator)</h4>
+
+      <h4>What to Do:</h4>
+      <p>This is the main script that connects everything together: loads images, creates graphs, trains the GNN, and saves the trained model weights.</p>
+
+      <pre><code># train.py - The Main Orchestrator
+import os
+import glob
+import argparse
+import numpy as np
+import torch
+import torch.nn as nn
+from torch_geometric.loader import DataLoader
+
+from src.dct_utils import load_and_slice, apply_dct_and_truncate
+from src.dataset import DCTGraphDataset
+from src.models import FrequencyGNN
+
+def prepare_training_data(image_folder, cutoff=15):
+    """Load all images, slice into blocks, apply DCT and truncate."""
+    all_X, all_Y = [], []
+    image_files = glob.glob(os.path.join(image_folder, "*.jpg"))
+    
+    print(f"Processing {len(image_files)} images from {image_folder}...")
+    for img_path in image_files:
+        blocks, shape = load_and_slice(img_path)
+        X, Y = apply_dct_and_truncate(blocks, cutoff=cutoff)
+        all_X.append(X)
+        all_Y.append(Y)
+    
+    all_X = np.concatenate(all_X, axis=0)
+    all_Y = np.concatenate(all_Y, axis=0)
+    print(f"Total training blocks: {len(all_X)}")
+    return all_X, all_Y
+
+def train(args):
+    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+    print(f"Training on: {device}")
+    
+    # 1. Prepare data
+    X_train, Y_train = prepare_training_data(args.train_folder, cutoff=args.cutoff)
+    dataset = DCTGraphDataset(X_train, Y_train, cutoff=args.cutoff)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    
+    # 2. Create model
+    model = FrequencyGNN(in_channels=3, hidden_channels=args.hidden, num_layers=args.layers).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    criterion = nn.MSELoss()
+    
+    # 3. Training loop
+    for epoch in range(args.epochs):
+        total_loss = 0
+        num_batches = 0
+        
+        for batch in dataloader:
+            batch = batch.to(device)
+            optimizer.zero_grad()
+            
+            # Forward pass: predict all 64 nodes
+            predictions = model(batch.x, batch.edge_index)
+            
+            # Loss: only on missing high-frequency nodes
+            loss = criterion(
+                predictions[batch.missing_mask],
+                batch.y[batch.missing_mask]
+            )
+            
+            # Backward pass
+            loss.backward()
+            optimizer.step()
+            
+            total_loss += loss.item()
+            num_batches += 1
+        
+        avg_loss = total_loss / num_batches
+        print(f"Epoch [{epoch+1}/{args.epochs}]  Loss: {avg_loss:.6f}")
+    
+    # 4. Save trained model
+    os.makedirs("checkpoints", exist_ok=True)
+    save_path = "checkpoints/model.pth"
+    torch.save(model.state_dict(), save_path)
+    print(f"Model saved to {save_path}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--train_folder", type=str, default="datasets/BSDS500/train")
+    parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--hidden", type=int, default=128)
+    parser.add_argument("--layers", type=int, default=3)
+    parser.add_argument("--cutoff", type=int, default=15)
+    parser.add_argument("--device", type=str, default="cuda")
+    args = parser.parse_args()
+    train(args)</code></pre>
+
+      <h4>How to Run (Locally for Quick Test):</h4>
+      <pre><code># Quick test with 5 images on CPU:
+python train.py --train_folder datasets/Set5 --epochs 5 --device cpu</code></pre>
+
+      <h4>How to Run (Colab for Full Training):</h4>
+      <pre><code># On Google Colab with T4 GPU:
+!git clone https://github.com/your-username/dip-gnn-dct.git
+%cd dip-gnn-dct
+!pip install torch_geometric
+!python train.py --train_folder datasets/BSDS500/train --epochs 30 --device cuda</code></pre>
+
+      <div class="test-box">
+        <strong>How to Test (You):</strong>
+        <p>During training, watch the loss value printed each epoch. It should <strong>steadily decrease</strong> from a high value (e.g., 0.05) down to a small value (e.g., 0.002 to 0.005) over 20 to 30 epochs.</p>
+      </div>
+
+      <div class="expect-box">
+        <strong>Expected Training Behaviour:</strong>
+        <table>
+          <tr><th>Epoch</th><th>Expected Loss</th><th>What it Means</th></tr>
+          <tr><td>1</td><td>~0.03 to 0.06</td><td>Model is randomly guessing (very bad)</td></tr>
+          <tr><td>5</td><td>~0.01 to 0.02</td><td>Starting to learn frequency patterns</td></tr>
+          <tr><td>15</td><td>~0.004 to 0.008</td><td>Learning harmonic relationships</td></tr>
+          <tr><td>30</td><td>~0.002 to 0.005</td><td>Converged! Ready for evaluation</td></tr>
+        </table>
+        <p>If loss stops decreasing or jumps around wildly, try reducing the learning rate to <code>1e-4</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- STAGE 5: EVALUATION -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="stage5">
+    <h2><span class="badge badge-stage">STAGE 5</span> Evaluation &amp; Visualization</h2>
+
+    <div class="file-card her-file" id="s5-her">
+      <span class="badge badge-her">HER WORK</span>
+      <h4>File: <code>evaluate.py</code></h4>
+
+      <div class="beginner-guide-box">
+        <strong>💡 Plain-English Guide (What I Expect From You Here):</strong>
+        <p>This is where everything comes together, and it's the most exciting part! Once I train the GNN model, I will send you the trained weights file (<code>model.pth</code>). All I need you to do is:</p>
+        <ol style="margin-left: 20px; margin-bottom: 6px;">
+          <li>Put <code>model.pth</code> inside a folder called <code>checkpoints/</code>.</li>
+          <li>Run <code>python evaluate.py</code> on your laptop (it takes just a few seconds on CPU).</li>
+          <li>Watch the terminal print our PSNR scores and see how much the GNN improved over the blurry baseline (e.g., +2.0 dB higher!).</li>
+          <li>Save the score table so we can put it directly into our project report and presentation.</li>
+        </ol>
+      </div>
+
+      <h4>What to Do:</h4>
+      <p>Load the trained model (saved as <code>checkpoints/model.pth</code>), run inference on Set5 and Set14 images, reconstruct images using predicted coefficients, and compute PSNR/SSIM scores.</p>
+
+      <pre><code># evaluate.py
+import os
+import glob
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+
+from src.dct_utils import load_and_slice, apply_dct_and_truncate, reconstruct_from_dct
+from src.metrics import calculate_psnr, calculate_ssim
+from src.graph_builder import build_frequency_graph
+from src.models import FrequencyGNN
+
+def evaluate_image(model, img_path, cutoff=15, device='cpu'):
+    """Evaluate a single image: baseline vs GNN reconstruction."""
+    import cv2
+    
+    # Load and process
+    blocks, shape = load_and_slice(img_path)
+    X_trunc, Y_full = apply_dct_and_truncate(blocks, cutoff=cutoff)
+    
+    # Baseline reconstruction (zero-padded IDCT)
+    baseline_img = reconstruct_from_dct(X_trunc, shape)
+    
+    # GNN prediction
+    edge_index = build_frequency_graph().to(device)
+    model.eval()
+    predicted_blocks = []
+    
+    with torch.no_grad():
+        for i in range(len(X_trunc)):
+            x_flat = torch.tensor(X_trunc[i], dtype=torch.float32)
+            coords = torch.tensor([[j // 8, j % 8] for j in range(64)], dtype=torch.float32) / 8.0
+            node_feat = torch.cat([x_flat.unsqueeze(1), coords], dim=1).to(device)
+            
+            pred = model(node_feat, edge_index).cpu().numpy()
+            
+            # Combine: keep known low freqs, use GNN for high freqs
+            combined = X_trunc[i].copy()
+            combined[cutoff:] = pred[cutoff:]
+            predicted_blocks.append(combined)
+    
+    predicted_blocks = np.array(predicted_blocks)
+    gnn_img = reconstruct_from_dct(predicted_blocks, shape)
+    
+    # Load original
+    original = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.0
+    h, w = shape
+    original = original[:h, :w]
+    
+    # Metrics
+    baseline_psnr = calculate_psnr(original, baseline_img)
+    baseline_ssim = calculate_ssim(original, baseline_img)
+    gnn_psnr = calculate_psnr(original, gnn_img)
+    gnn_ssim = calculate_ssim(original, gnn_img)
+    
+    return {
+        'original': original,
+        'baseline': baseline_img,
+        'gnn': gnn_img,
+        'baseline_psnr': baseline_psnr,
+        'baseline_ssim': baseline_ssim,
+        'gnn_psnr': gnn_psnr,
+        'gnn_ssim': gnn_ssim,
+        'psnr_gain': gnn_psnr - baseline_psnr,
+    }
+
+if __name__ == "__main__":
+    # Load trained model
+    model = FrequencyGNN(in_channels=3, hidden_channels=128, num_layers=3)
+    model.load_state_dict(torch.load("checkpoints/model.pth", map_location='cpu'))
+    
+    # Evaluate on Set5
+    print("=" * 60)
+    print("EVALUATION ON SET5")
+    print("=" * 60)
+    
+    os.makedirs("results", exist_ok=True)
+    
+    for img_path in sorted(glob.glob("datasets/Set5/*.png")):
+        result = evaluate_image(model, img_path)
+        name = os.path.basename(img_path)
+        print(f"{name}:")
+        print(f"  Baseline PSNR: {result['baseline_psnr']:.2f} dB")
+        print(f"  GNN      PSNR: {result['gnn_psnr']:.2f} dB  (Gain: +{result['psnr_gain']:.2f} dB)")
+        print(f"  Baseline SSIM: {result['baseline_ssim']:.4f}")
+        print(f"  GNN      SSIM: {result['gnn_ssim']:.4f}")
+        print()</code></pre>
+
+      <div class="expect-box">
+        <strong>Expected Final Results (The Victory Check!):</strong>
+        <table>
+          <tr><th>Metric</th><th>Baseline (Zero-Padded IDCT)</th><th>GNN Reconstruction</th><th>Gain</th></tr>
+          <tr><td>PSNR</td><td>~24 to 28 dB</td><td>~26 to 31 dB</td><td><strong>+1.5 to +3.0 dB</strong></td></tr>
+          <tr><td>SSIM</td><td>~0.75 to 0.85</td><td>~0.80 to 0.90</td><td><strong>+0.03 to +0.06</strong></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="file-card her-file" id="s5-plots">
+      <span class="badge badge-her">HER WORK</span>
+      <h4>Visualization: Side-by-Side Comparison Images &amp; Error Heatmaps</h4>
+
+      <div class="beginner-guide-box">
+        <strong>💡 Plain-English Guide (What I Expect From You Here):</strong>
+        <p>In this final step, you will generate the visual proof that professors love to see in presentations:</p>
+        <ol style="margin-left: 20px; margin-bottom: 6px;">
+          <li>A clean 3-panel picture: <code>[Original Image]</code> vs <code>[Blurry Baseline Image]</code> vs <code>[Our AI Restored Image]</code>.</li>
+          <li>An error heatmap picture showing where the blocky grid lines and blur disappeared.</li>
+          <li><strong>Interactive Pop-up Window:</strong> We added <code>plt.show()</code> so a window pops up right on your screen showing the comparison as soon as you run the script!</li>
+        </ol>
+        <p style="margin-bottom:0;">The pictures are also saved automatically in your <code>results/</code> folder so you can drag-and-drop them into PowerPoint slides!</p>
+      </div>
+
+      <h4>What to Do:</h4>
+      <p>Add a plotting function at the bottom of <code>evaluate.py</code> that pops up an interactive display window and saves the images into the <code>results/</code> folder.</p>
+
+      <pre><code># Add to evaluate.py:
+def plot_comparison(result, image_name, show_popup=True):
+    """Plot side-by-side: Original vs Baseline vs GNN."""
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    
+    axes[0].imshow(result['original'], cmap='gray')
+    axes[0].set_title('Original', fontsize=12)
+    axes[0].axis('off')
+    
+    axes[1].imshow(result['baseline'], cmap='gray')
+    axes[1].set_title(f"Baseline (PSNR: {result['baseline_psnr']:.2f} dB)", fontsize=12)
+    axes[1].axis('off')
+    
+    axes[2].imshow(result['gnn'], cmap='gray')
+    axes[2].set_title(f"GNN (PSNR: {result['gnn_psnr']:.2f} dB, +{result['psnr_gain']:.2f})", fontsize=12)
+    axes[2].axis('off')
+    
+    plt.suptitle(image_name, fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(f"results/{image_name}_comparison.png", dpi=150)
+    print(f"  Saved comparison plot to results/{image_name}_comparison.png")
+    
+    # Pops up on her screen so she can view it immediately!
+    if show_popup:
+        plt.show()
+    plt.close()
+
+def plot_error_heatmap(result, image_name, show_popup=True):
+    """Plot pixel-wise error heatmap: Baseline vs GNN."""
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    
+    error_baseline = np.abs(result['original'] - result['baseline'])
+    error_gnn = np.abs(result['original'] - result['gnn'])
+    
+    im1 = axes[0].imshow(error_baseline, cmap='hot', vmin=0, vmax=0.15)
+    axes[0].set_title('Baseline Error Map')
+    axes[0].axis('off')
+    
+    im2 = axes[1].imshow(error_gnn, cmap='hot', vmin=0, vmax=0.15)
+    axes[1].set_title('GNN Error Map')
+    axes[1].axis('off')
+    
+    plt.colorbar(im2, ax=axes, fraction=0.02)
+    plt.suptitle(f"{image_name} - Error Heatmap (Darker = Less Error)", fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(f"results/{image_name}_error_heatmap.png", dpi=150)
+    print(f"  Saved error heatmap to results/{image_name}_error_heatmap.png")
+    
+    # Pops up on her screen!
+    if show_popup:
+        plt.show()
+    plt.close()</code></pre>
+
+      <div class="expect-box">
+        <strong>Expected Visual Result:</strong>
+        <p>The GNN reconstruction should look noticeably sharper than the baseline. The error heatmap for the GNN should be darker (less red) than the baseline error heatmap, especially at block boundaries and edges.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- STAGE 6: INTEGRATION -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="stage6">
+    <h2><span class="badge badge-stage">STAGE 6</span> Integration &amp; Final Submission</h2>
+
+    <div class="file-card both-file" id="s6-both">
+      <span class="badge badge-both">BOTH</span>
+      <h4>Final Integration &amp; Report Preparation</h4>
+
+      <h4>What to Do Together:</h4>
+      <ol>
+        <li><strong>Merge Code:</strong> Git pull each other's branches. Make sure <code>train.py</code> correctly imports her <code>dct_utils.py</code> and <code>metrics.py</code>.</li>
+        <li><strong>Full Pipeline Test:</strong> Run the complete pipeline end-to-end:
+          <pre><code># Step 1: Train on BSDS500 (Colab)
+python train.py --train_folder datasets/BSDS500/train --epochs 30
+
+# Step 2: Evaluate on Set5 and Set14 (Her laptop or Colab)
+python evaluate.py</code></pre>
+        </li>
+        <li><strong>Collect Results:</strong> Copy comparison images, error heatmaps, and the PSNR/SSIM table from the <code>results/</code> folder.</li>
+        <li><strong>Write the Report / Presentation:</strong>
+          <ul>
+            <li><strong>Her contribution:</strong> Problem statement, DCT/IDCT methodology, baseline results, evaluation metrics methodology, visual comparisons.</li>
+            <li><strong>Your contribution:</strong> Graph formulation, GNN architecture, training setup, quantitative improvements, Colab GPU setup.</li>
+          </ul>
+        </li>
+      </ol>
+
+      <div class="expect-box">
+        <strong>Final Deliverables Checklist:</strong>
+        <ul>
+          <li>✅ GitHub repository with clean, modular Python files.</li>
+          <li>✅ Trained model weights (<code>checkpoints/model.pth</code>).</li>
+          <li>✅ Baseline PSNR/SSIM table on Set5 and Set14.</li>
+          <li>✅ GNN PSNR/SSIM table showing improvement over baseline.</li>
+          <li>✅ Side-by-side comparison images (Original vs. Baseline vs. GNN).</li>
+          <li>✅ Error heatmaps showing reduced artifacts.</li>
+          <li>✅ Report / presentation slides.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- TIMELINE -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="timeline">
+    <h2>Suggested Timeline Schedule</h2>
+    <table>
+      <thead>
+        <tr><th>Day</th><th>Her Task</th><th>Your Task</th><th>Status Check</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Day 1</strong></td>
+          <td>Setup environment. Write <code>load_and_slice()</code> and <code>apply_dct_and_truncate()</code>.</td>
+          <td>Setup repo. Write <code>graph_builder.py</code> and test edge counts.</td>
+          <td>She shows sliced blocks. You show edge_index tensor.</td>
+        </tr>
+        <tr>
+          <td><strong>Day 2</strong></td>
+          <td>Write <code>reconstruct_from_dct()</code> and <code>metrics.py</code>. Run baseline on Set5.</td>
+          <td>Write <code>dataset.py</code> and <code>models.py</code>. Test with dummy data.</td>
+          <td>She reports baseline PSNR. You confirm model forward pass works.</td>
+        </tr>
+        <tr>
+          <td><strong>Day 3</strong></td>
+          <td>Record baseline PSNR/SSIM on all Set5 and Set14 images.</td>
+          <td>Write <code>train.py</code>. Quick test training on Set5 (5 epochs on CPU).</td>
+          <td>She has baseline table. You see loss decreasing.</td>
+        </tr>
+        <tr>
+          <td><strong>Day 4</strong></td>
+          <td>Start writing <code>evaluate.py</code> (loading model + inference).</td>
+          <td>Full training on Colab GPU using BSDS500 (30 epochs). Save <code>model.pth</code>.</td>
+          <td>You share <code>model.pth</code> via GitHub/Drive.</td>
+        </tr>
+        <tr>
+          <td><strong>Day 5</strong></td>
+          <td>Run <code>evaluate.py</code> with trained model. Generate comparison plots and error heatmaps.</td>
+          <td>Help integrate, debug any issues, assist with report.</td>
+          <td>Both see GNN beating baseline by +1.5 to +3 dB! 🎉</td>
+        </tr>
+        <tr>
+          <td><strong>Day 6-7</strong></td>
+          <td colspan="2" style="text-align:center;">Write the report/presentation together. Polish results. Submit!</td>
+          <td>Done!</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- COLAB INSTRUCTIONS -->
+  <!-- ═══════════════════════════════════════════ -->
+  <section id="colab">
+    <h2>How to Run the Full Pipeline on Google Colab</h2>
+
+    <p>Once the code is on GitHub, running the full training takes exactly <strong>4 lines</strong> on a free Colab GPU notebook:</p>
+
+    <pre><code># Google Colab Cell (Select Runtime -> T4 GPU first!)
+
+# 1. Clone the repository
+!git clone https://github.com/your-username/dip-gnn-dct.git
+%cd dip-gnn-dct
+
+# 2. Install PyTorch Geometric
+!pip install torch_geometric
+
+# 3. Train the model on BSDS500 with T4 GPU
+!python train.py --train_folder datasets/BSDS500/train --epochs 30 --device cuda
+
+# 4. Evaluate on Set5 and Set14
+!python evaluate.py</code></pre>
+
+    <div class="info-box">
+      <strong>Pro Tip:</strong> After training finishes on Colab, download the <code>checkpoints/model.pth</code> file and the <code>results/</code> folder to your local machine. She can then run <code>evaluate.py</code> on her own laptop (CPU only, no GPU needed for inference!) to verify and generate additional plots.
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

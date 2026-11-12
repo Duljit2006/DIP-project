@@ -1,0 +1,14 @@
+# Core Scientific & Image Processing
+numpy
+scipy
+opencv-python
+Pillow
+matplotlib
+scikit-image
+
+# Deep Learning (PyTorch)
+torch
+torchvision
+
+# Graph Neural Networks (PyTorch Geometric)
+torch_geometric
