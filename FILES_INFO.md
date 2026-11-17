@@ -174,4 +174,99 @@ Sample Harmonic edge (1,2) -> (2,4): Connected = True
 
 ---
 
+## 2. `src/models.py`
+
+### In Simple Words
+`src/models.py` defines the **"Brain"** of our project: the Graph Neural Network (GNN) model named **`FrequencyGNN`**. It takes the graph connections built by `graph_builder.py` and actually executes the thinking and clue-passing to predict the missing high-frequency values.
+
+---
+
+### The Problem It Solves
+`graph_builder.py` gave us the **roads (edges)** between frequencies, but roads alone do nothing without a vehicle to transport information. 
+
+`FrequencyGNN` is the engine that travels along those roads:
+- It looks at the known numbers (low frequencies at top-left).
+- It transmits their clues along the spatial and harmonic edges.
+- It outputs a predicted scalar number for the missing high-frequency spots that were erased during compression.
+
+---
+
+### What It Does Step-by-Step
+
+1. **Input Features per Node (`in_channels = 3`):**
+   Every single node (from 0 to 63) is given 3 numbers:
+   - **Number 1:** Its current frequency amplitude (real number if known, `0.0` if erased).
+   - **Number 2 & 3:** Its normalized $(u, v)$ frequency coordinate on the $8 \times 8$ grid (`u / 7.0`, `v / 7.0`), acting like GPS coordinates so the node knows where it sits.
+
+2. **The "Thinking" Message-Passing Layers (`GCNConv`):**
+   - The model has **3 Graph Convolutional Layers** with 128 hidden neurons each.
+   - In every layer, each node collects clues from all neighboring nodes connected by the 500 edges, adds them up, applies normalization (`LayerNorm`), and activates them (`ReLU`).
+   - It includes **residual skip connections** ($h = h + h_{\text{next}}$) so low-frequency signals are never lost or over-smoothed.
+
+3. **The Prediction Head (`Linear Head`):**
+   - After the nodes finish exchanging messages across all layers, a final small linear neural network maps each node's 128 internal thoughts into a single final guess: its predicted DCT amplitude.
+
+---
+
+### What It Takes In and What It Outputs
+
+- **Input:**
+  - `x`: Node features tensor of shape `(64, 3)` for a single block (or `(B * 64, 3)` for a batch of $B$ blocks).
+  - `edge_index`: Road connection tensor of shape `(2, 500)` from `graph_builder.py`.
+- **Output:**
+  - A 1D tensor of shape `(64,)` for a single block (or `(B * 64,)` for a batch), where each number is the model's predicted DCT amplitude for that frequency node.
+
+---
+
+### Model Stats
+- **Total Trainable Parameters:** **42,625** (Feather-light! Only takes ~170 KB of storage and trains in milliseconds).
+- **GPU & CPU Compatible:** Runs seamlessly on both your laptop CPU and free cloud GPUs (Google Colab).
+
+---
+
+### How to Test It
+Run this command from your terminal:
+```powershell
+.venv\Scripts\python src/models.py
+```
+**Expected Output:**
+```text
+============================================================
+Testing src/models.py (FrequencyGNN)
+============================================================
+Model architecture:
+FrequencyGNN(
+  (convs): ModuleList(
+    (0): GCNConv(3, 128)
+    (1-2): 2 x GCNConv(128, 128)
+  )
+  (norms): ModuleList(
+    (0-2): 3 x LayerNorm((128,), eps=1e-05, elementwise_affine=True, bias=True)
+  )
+  (relu): ReLU()
+  (dropout): Identity()
+  (head): Sequential(
+    (0): Linear(in_features=128, out_features=64, bias=True)
+    (1): ReLU()
+    (2): Linear(in_features=64, out_features=1, bias=True)
+  )
+)
+
+Total trainable parameters: 42,625
+
+[Test 1: Single Block (64 nodes)]
+Input node features shape:  torch.Size([64, 3])
+Graph edge index shape:     torch.Size([2, 500])
+Output predictions shape:   torch.Size([64]) (Expected: torch.Size([64]))
+
+[Test 2: Batched Blocks (4 blocks = 256 nodes)]
+Batch input node features:  torch.Size([256, 3]) (Expected: torch.Size([256, 3]))
+Batch edge index:           torch.Size([2, 2000])
+Batch output predictions:   torch.Size([256]) (Expected: torch.Size([256]))
+
+[SUCCESS] FrequencyGNN successfully validated for single and batched inputs!
+```
+
+---
+
 *(More files will be added here as we implement them!)*
