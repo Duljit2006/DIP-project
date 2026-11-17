@@ -4,6 +4,97 @@ This document keeps a record of each file in our project, explaining what it doe
 
 ---
 
+## 🔍 Visualizing the Core Problem: An $8 \times 8$ Pixel Example
+
+To easily visualize how an image block is transformed, degraded, and then restored by our GNN, let us walk through a concrete $8 \times 8$ block with actual numbers step-by-step.
+
+### Step 1: The Raw Image Block (Pixel Intensities)
+In grayscale, every pixel is a number from **0 (pure black)** to **255 (pure white)**.
+
+Imagine our camera zoomed into an $8 \times 8$ patch showing a **soft horizontal edge** (the top half is darker gray, the bottom half is brighter gray):
+
+```text
+Row 0: [  50,  52,  49,  51,  50,  52,  51,  49 ]   <-- Dark gray (~50)
+Row 1: [  51,  50,  52,  50,  49,  51,  50,  52 ]
+Row 2: [  52,  51,  50,  52,  51,  49,  52,  50 ]
+Row 3: [  50,  49,  51,  50,  52,  51,  50,  49 ]
+Row 4: [ 180, 182, 179, 181, 180, 182, 181, 179 ]   <-- Bright gray (~180)
+Row 5: [ 179, 181, 180, 182, 181, 179, 180, 182 ]
+Row 6: [ 181, 180, 182, 179, 180, 181, 182, 180 ]
+Row 7: [ 180, 182, 181, 180, 179, 181, 180, 182 ]
+```
+
+All 64 numbers look important right now. There is no simple way to drop numbers without ruining the image.
+
+---
+
+### Step 2: Run 2D-DCT (The "Frequency Transformation")
+DCT performs a mathematical change of perspective. Instead of describing *individual pixels*, it asks:
+> *"How much of this block is flat brightness, how much is a broad wave, and how much is tiny rapid ripples?"*
+
+When we run 2D-DCT on those 64 pixel values, here is the resulting **$8 \times 8$ DCT Matrix**:
+
+```text
+             Column 0   Column 1   Column 2  ...  Column 7
+Row 0 (Top): [  920,        2,        -1,    ...     0  ]  <-- Top-Left: Low frequencies
+Row 1:       [ -360,        0,         1,    ...     0  ]
+Row 2:       [   15,       -2,         0,    ...     0  ]
+Row 3:       [  -70,        1,        -1,    ...     0  ]
+...          ...
+Row 7:       [    1,        0,         0,    ...     0  ]  <-- Bottom-Right: High frequencies
+```
+
+Notice what happened:
+1. **Top-Left Corner (`Row 0, Col 0` = 920):**  
+   This is the **DC Component**. It is the average brightness of all 64 pixels combined! It is a large number (`920`) because it holds the core light energy of the block.
+2. **First Column (`Row 1, Col 0` = -360):**  
+   Notice this large negative number. It captures the **sudden horizontal jump** from dark (50) to bright (180).
+3. **Bottom-Right Corner:**  
+   Look at all the tiny numbers: `-1, 0, 1, 2, 0`.  
+   These are the **High-Frequency AC Components** (the tiny imperceptible noise variations between neighbor pixels).
+
+---
+
+### Step 3: JPEG Compression / Truncation (Information Loss)
+To shrink file size, we **zero-out the high frequencies** (everything in the bottom-right):
+
+```text
+[  920,    2,   -1,    0,   0,   0,   0,   0 ]
+[ -360,    0,    1,    0,   0,   0,   0,   0 ]
+[   15,   -2,    0,    0,   0,   0,   0,   0 ]  <-- Top-left is KEPT (Low frequencies)
+[  -70,    1,    0,    0,   0,   0,   0,   0 ]
+------------------------------------------------
+[    0,    0,    0,    0,   0,   0,   0,   0 ]
+[    0,    0,    0,    0,   0,   0,   0,   0 ]  <-- Bottom-right is ERASED to 0 (High frequencies)
+[    0,    0,    0,    0,   0,   0,   0,   0 ]
+[    0,    0,    0,    0,   0,   0,   0,   0 ]
+```
+
+- We saved massive file size because long strings of `0` compress to almost nothing.
+- **The Problem:** When you run Inverse DCT (IDCT) on this truncated block, the edge looks slightly blurry, and the boundaries between this block and its neighbors create a faint square seam (blocking artifacts).
+
+---
+
+### Step 4: Where Our GNN Enters the Story
+Here is how our project fixes that block:
+
+1. **Turn the 64 positions into 64 Nodes:**
+   - Node 0 = `920` (DC - known)
+   - Node 8 = `-360` (known)
+   - Node 63 = `0.0` (erased, target to predict)
+2. **Our `src/graph_builder.py` roads connect them:**
+   - Road connects Node 8 (`-360`) to its harmonic Node 24 (`-70`).
+3. **The GNN "Thinks":**
+   - The GNN inspects Node 0 (`920`) and Node 8 (`-360`).
+   - It sends messages across the harmonic edges:  
+     *"I see a strong step transition of -360 in the low frequencies! Therefore, the missing high-frequency ripple at Node 32 wasn't 0.0, it should be approximately -6.5!"*
+4. **Reconstruction:**
+   - We replace the zeros with the GNN's predicted numbers.
+   - We run **IDCT** back to pixels.
+   - **Result:** The edge becomes crisp and the block boundary seam disappears!
+
+---
+
 ## 1. `src/graph_builder.py`
 
 ### In Simple Words
