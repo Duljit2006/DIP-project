@@ -339,4 +339,90 @@ Batch graphs count:  16 (Expected: 16)
 
 ---
 
+## 4. `train.py`
+
+### In Simple Words
+`train.py` is the **Main Conductor / Orchestrator** of the training process. It loads images from your dataset folder, slices them into $8 \times 8$ frequency blocks, hands them to `FrequencyGNN` in batches, monitors how the model learns over each epoch, and automatically saves the trained brain weights into `checkpoints/model.pth`.
+
+---
+
+### The Problem It Solves
+We had individual components:
+- `graph_builder.py` (the road network)
+- `models.py` (the GNN brain)
+- `dataset.py` (the data packager)
+
+None of them run training by themselves. `train.py` is the file that connects them all together into an automated training loop with backpropagation, gradient updates, learning rate scheduling, and checkpoint saving.
+
+---
+
+### What It Does Step-by-Step
+
+1. **Loads and Prepares Real Images (`load_dataset_blocks`):**
+   - Scans a directory (e.g. `datasets/BSDS500/train` or `datasets/Set5`).
+   - Slices each image into $8 \times 8$ pixel tiles and converts each tile into 64 DCT frequency numbers.
+   - Saves the true numbers as the **Answer Key ($Y$)**.
+   - Zeroes out the high frequencies beyond the zigzag cutoff (e.g. 15) to make the **Question Input ($X$)**.
+2. **Feeds Data in Batches (`DataLoader`):**
+   - Groups thousands of blocks into mini-batches of 64 blocks each to optimize CPU/GPU throughput.
+3. **The Learning Loop (`train`):**
+   - **Forward Pass:** The GNN predicts the missing frequency coefficients.
+   - **Loss Calculation (MSE):** The error is measured **strictly on the missing frequencies** using `missing_mask`:
+     $$\text{Loss} = \text{MSE}(\hat{C}_{\text{pred}}[\text{missing}], C_{\text{true}}[\text{missing}])$$
+   - **Backpropagation:** `loss.backward()` and `optimizer.step()` update the 42,625 model parameters via the Adam optimizer.
+4. **Saves Best Checkpoint:**
+   - Whenever an epoch achieves the lowest loss, it automatically saves the model weights to `checkpoints/model.pth`.
+
+---
+
+### Key Command-Line Flags
+`train.py` includes built-in command-line arguments so you can customize training without modifying the code:
+- `--train_folder`: Path to images folder (default: `datasets/Set5`, for full training use `datasets/BSDS500/train`).
+- `--epochs`: Number of full passes through data (e.g., 5 for quick check, 30 for complete training).
+- `--batch_size`: Number of $8 \times 8$ blocks per batch (default: `64`).
+- `--lr`: Learning rate (default: `0.001`).
+- `--cutoff`: Number of preserved low-frequency coefficients (default: `15`).
+- `--device`: Target hardware (`cpu` or `cuda`).
+
+---
+
+### How to Run It
+
+#### A. Quick Test on Your Laptop (CPU):
+```powershell
+.venv\Scripts\python train.py --train_folder datasets/Set5 --epochs 3 --device cpu
+```
+
+#### B. Full Training on Google Colab (Free T4 GPU):
+```bash
+!python train.py --train_folder datasets/BSDS500/train --epochs 30 --device cuda
+```
+
+**Sample Output:**
+```text
+Loading 5 image(s) from datasets/Set5...
+Total 8x8 DCT blocks prepared: 8,845 blocks.
+
+============================================================
+Starting Training:
+  Total Epochs:      3
+  Batch Size:        64 blocks
+  Learning Rate:     0.001
+  Cutoff Frequencies:15 (Predicting 49 missing ACs)
+  Total Parameters:  42,625
+============================================================
+
+Epoch [01/03] - Loss: 0.005433 - LR: 1.0e-03 - Time: 6.2s *
+Epoch [02/03] - Loss: 0.000750 - LR: 1.0e-03 - Time: 12.2s *
+Epoch [03/03] - Loss: 0.000751 - LR: 1.0e-03 - Time: 17.7s
+
+============================================================
+[SUCCESS] Training complete in 17.7s!
+Best Loss: 0.000750
+Saved weights to: checkpoints\model.pth
+============================================================
+```
+
+---
+
 *(More files will be added here as we implement them!)*
