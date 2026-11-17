@@ -269,4 +269,74 @@ Batch output predictions:   torch.Size([256]) (Expected: torch.Size([256]))
 
 ---
 
+## 3. `src/dataset.py`
+
+### In Simple Words
+`src/dataset.py` is the **"Delivery Truck" / Data Pipeline** of our project. It takes thousands of $8 \times 8$ DCT blocks, attaches the 500 graph roads from `graph_builder.py` to each one, marks which numbers are missing, and packages them into clean mini-batches so the GPU/CPU can learn quickly.
+
+---
+
+### The Problem It Solves
+Raw images and DCT blocks are just tables of numbers. But our `FrequencyGNN` model expects **PyTorch Geometric Graph Data objects** (`Data(x=..., edge_index=..., y=..., missing_mask=...)`).
+
+`src/dataset.py` bridges that gap:
+1. It automatically turns flat 64-number blocks into 64 graph nodes.
+2. It gives each node its GPS location: normalized $(u, v)$ coordinates.
+3. It creates a **`missing_mask`** so the training loss knows *only* to grade the erased numbers, never penalizing the model for the already-known low frequencies!
+4. It stacks multiple blocks together into **mini-batches** (e.g. 64 blocks at a time) for fast, parallel GPU training.
+
+---
+
+### Key Components Step-by-Step
+
+1. **`get_zigzag_indices()` & `create_zigzag_mask(cutoff)`:**
+   - In JPEG compression, frequencies are scanned in a diagonal **zigzag order** from top-left (lowest) to bottom-right (highest).
+   - This function creates a boolean mask where the first `cutoff` numbers (e.g., 15) are `False` (known/kept), and the remaining 49 numbers are `True` (missing/erased to be predicted).
+
+2. **`DCTGraphDataset` Class:**
+   - Inherits from PyTorch Geometric's `Dataset`.
+   - Attaches `self.edge_index` (the 500 roads from `graph_builder.py`) to every block.
+   - For every block, outputs a `Data` object containing:
+     - `x`: Node features of shape `(64, 3)` $\rightarrow$ `[amplitude, u_coord, v_coord]`.
+     - `edge_index`: Shape `(2, 500)`.
+     - `y`: Untouched ground-truth DCT values (the answer key).
+     - `missing_mask`: 49 missing node flags.
+
+3. **`get_dct_dataloader(...)` Helper:**
+   - Bundles the dataset into a PyG `DataLoader` with parallel batching and shuffling.
+
+---
+
+### How to Test It
+Run this command from your terminal:
+```powershell
+.venv\Scripts\python src/dataset.py
+```
+**Expected Output:**
+```text
+============================================================
+Testing src/dataset.py (DCTGraphDataset & DataLoader)
+============================================================
+Zigzag cutoff:       15
+Preserved low nodes: 15 / 64
+Missing high nodes:  49 / 64 (to be predicted)
+
+[Simulating 100 DCT blocks...]
+Dataset length:      100 blocks
+Single graph x:      torch.Size([64, 3]) (Expected: torch.Size([64, 3]))
+Single graph edges:  torch.Size([2, 500]) (Expected: torch.Size([2, 500]))
+Single graph y:      torch.Size([64]) (Expected: torch.Size([64]))
+Missing mask count:  49 missing nodes
+
+[Batching Test (batch_size = 16)]
+Batch x shape:       torch.Size([1024, 3]) (Expected: torch.Size([1024, 3]))
+Batch edge_index:    torch.Size([2, 8000]) (Expected: torch.Size([2, 8000]))
+Batch y shape:       torch.Size([1024]) (Expected: torch.Size([1024]))
+Batch graphs count:  16 (Expected: 16)
+
+[SUCCESS] DCTGraphDataset and DataLoader successfully validated!
+```
+
+---
+
 *(More files will be added here as we implement them!)*
