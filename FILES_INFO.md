@@ -125,7 +125,7 @@ A Graph Neural Network (GNN) cannot guess those numbers out of thin air. It need
    - Position `(0, 0)` is Node `0` (the DC brightness).
    - Position `(7, 7)` is Node `63` (the highest frequency).
 
-2. **Draws "Neighbor Roads" (Spatial Edges):**
+2. **Draws "Neighbor Roads" (Spatial Edges):**K
    - Frequencies that sit right next to each other in the grid are related.
    - It connects every node to its 8 surrounding neighbors (up, down, left, right, diagonals).
    - *Why?* If frequency $(1, 1)$ has a certain pattern, $(1, 2)$ right next to it will have a very similar pattern.
