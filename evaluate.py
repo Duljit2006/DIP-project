@@ -42,6 +42,8 @@ from src.models import FrequencyGNN
 def evaluate_image(model, image_path, cutoff=15, device="cpu"):
     """
     Evaluates a single image through both the Baseline and GNN reconstruction pipelines.
+    Supports full 3-channel RGB color images (via standard YCbCr luminance processing)
+    as well as grayscale images.
 
     Args:
         model (FrequencyGNN): Trained PyTorch model.
@@ -54,12 +56,34 @@ def evaluate_image(model, image_path, cutoff=15, device="cpu"):
     """
     model.eval()
 
-    # 1. Load image and slice into 8x8 blocks
-    blocks, shape = load_and_slice(image_path)
-    X_trunc, Y_full = apply_dct_and_truncate(blocks, cutoff=cutoff)
+    # Check if image is color or grayscale
+    raw_bgr = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    if raw_bgr is None:
+        raise ValueError(f"Could not load image at path: {image_path}")
 
-    # 2. Baseline Reconstruction (IDCT with missing frequencies set to 0.0)
-    baseline_img = reconstruct_from_dct(X_trunc, shape)
+    h, w, c = raw_bgr.shape
+    h_crop, w_crop = (h // 8) * 8, (w // 8) * 8
+    raw_bgr = raw_bgr[:h_crop, :w_crop]
+    raw_rgb = cv2.cvtColor(raw_bgr, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+
+    # Convert to YCrCb color space (Standard JPEG pipeline)
+    raw_ycrcb = cv2.cvtColor(raw_rgb, cv2.COLOR_RGB2YCrCb)
+    Y_channel = raw_ycrcb[:, :, 0]
+    Cr_channel = raw_ycrcb[:, :, 1]
+    Cb_channel = raw_ycrcb[:, :, 2]
+
+    # Slice Luminance (Y) channel into 8x8 blocks
+    blocks_Y = []
+    for r in range(0, h_crop, 8):
+        for c in range(0, w_crop, 8):
+            blocks_Y.append(Y_channel[r:r+8, c:c+8])
+    blocks_Y = np.array(blocks_Y, dtype=np.float32)
+
+    # 1. 2D-DCT & Truncate on Y channel
+    X_trunc, Y_full = apply_dct_and_truncate(blocks_Y, cutoff=cutoff)
+
+    # 2. Baseline Reconstruction (IDCT with zero-filled missing high frequencies)
+    baseline_Y = reconstruct_from_dct(X_trunc, (h_crop, w_crop))
 
     # 3. GNN Model Inference (Batched for speed)
     dataloader = get_dct_dataloader(X_trunc, Y_full, cutoff=cutoff, batch_size=128, shuffle=False)
@@ -75,50 +99,59 @@ def evaluate_image(model, image_path, cutoff=15, device="cpu"):
 
     # 4. Synthesize Final Frequency Blocks:
     # Strictly preserve true known low frequencies; fill in missing high frequencies from GNN.
-    missing_mask = create_zigzag_mask(cutoff=cutoff).numpy()  # True for missing positions
+    missing_mask = create_zigzag_mask(cutoff=cutoff).numpy()
     X_gnn_restored = X_trunc.copy()
     X_gnn_restored[:, missing_mask] = all_preds[:, missing_mask]
 
     # 5. IDCT Reconstruction using GNN restored coefficients
-    gnn_img = reconstruct_from_dct(X_gnn_restored, shape)
+    gnn_Y = reconstruct_from_dct(X_gnn_restored, (h_crop, w_crop))
 
-    # 6. Load ground-truth cropped original image
-    orig_raw = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.0
-    h, w = shape
-    original_img = orig_raw[:h, :w]
+    # 6. Reconstruct Full 3-Channel RGB Images
+    baseline_ycrcb = np.stack([np.clip(baseline_Y, 0.0, 1.0), Cr_channel, Cb_channel], axis=-1)
+    baseline_rgb = np.clip(cv2.cvtColor(baseline_ycrcb, cv2.COLOR_YCrCb2RGB), 0.0, 1.0)
 
-    # 7. Calculate Metrics
-    base_psnr = calculate_psnr(original_img, baseline_img)
-    base_ssim = calculate_ssim(original_img, baseline_img)
-    gnn_psnr = calculate_psnr(original_img, gnn_img)
-    gnn_ssim = calculate_ssim(original_img, gnn_img)
+    gnn_ycrcb = np.stack([np.clip(gnn_Y, 0.0, 1.0), Cr_channel, Cb_channel], axis=-1)
+    gnn_rgb = np.clip(cv2.cvtColor(gnn_ycrcb, cv2.COLOR_YCrCb2RGB), 0.0, 1.0)
+
+    original_rgb = raw_rgb
+
+    # 7. Calculate Standard Metrics on Luminance (Y Channel)
+    base_psnr = calculate_psnr(Y_channel, baseline_Y)
+    base_ssim = calculate_ssim(Y_channel, baseline_Y)
+    gnn_psnr = calculate_psnr(Y_channel, gnn_Y)
+    gnn_ssim = calculate_ssim(Y_channel, gnn_Y)
 
     return {
-        "original": original_img,
-        "baseline": baseline_img,
-        "gnn": gnn_img,
+        "original": original_rgb,
+        "baseline": baseline_rgb,
+        "gnn": gnn_rgb,
+        "is_color": True,
         "baseline_psnr": base_psnr,
         "baseline_ssim": base_ssim,
         "gnn_psnr": gnn_psnr,
         "gnn_ssim": gnn_ssim,
         "psnr_gain": gnn_psnr - base_psnr,
         "ssim_gain": gnn_ssim - base_ssim,
-        "shape": shape,
+        "shape": (h_crop, w_crop),
     }
 
 
 def save_visual_comparison(res, image_name, save_dir="results"):
     """
-    Saves a 3-panel comparison figure: [Original] vs [Baseline] vs [GNN Restored].
+    Saves a 3-panel comparison figure in vibrant FULL COLOR:
+    [Original Color] vs [Baseline Color] vs [GNN Restored Color].
     """
     os.makedirs(save_dir, exist_ok=True)
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-    axes[0].imshow(res["original"], cmap="gray")
+    is_color = res.get("is_color", False)
+    cmap_arg = None if is_color else "gray"
+
+    axes[0].imshow(res["original"], cmap=cmap_arg)
     axes[0].set_title("Original (Ground Truth)", fontsize=11, fontweight="bold")
     axes[0].axis("off")
 
-    axes[1].imshow(res["baseline"], cmap="gray")
+    axes[1].imshow(res["baseline"], cmap=cmap_arg)
     axes[1].set_title(
         f"Baseline JPEG (Cutoff={15})\nPSNR: {res['baseline_psnr']:.2f} dB | SSIM: {res['baseline_ssim']:.4f}",
         fontsize=10,
@@ -126,7 +159,7 @@ def save_visual_comparison(res, image_name, save_dir="results"):
     axes[1].axis("off")
 
     gain_str = f"+{res['psnr_gain']:.2f} dB" if res['psnr_gain'] >= 0 else f"{res['psnr_gain']:.2f} dB"
-    axes[2].imshow(res["gnn"], cmap="gray")
+    axes[2].imshow(res["gnn"], cmap=cmap_arg)
     axes[2].set_title(
         f"GNN Restored (Our Model)\nPSNR: {res['gnn_psnr']:.2f} dB ({gain_str}) | SSIM: {res['gnn_ssim']:.4f}",
         fontsize=10,
@@ -134,7 +167,8 @@ def save_visual_comparison(res, image_name, save_dir="results"):
     )
     axes[2].axis("off")
 
-    plt.suptitle(f"Image Reconstruction Comparison: {image_name}", fontsize=13, fontweight="bold")
+    color_label = "Color RGB" if is_color else "Grayscale"
+    plt.suptitle(f"Image Reconstruction Comparison ({color_label}): {image_name}", fontsize=13, fontweight="bold")
     plt.tight_layout()
     out_path = os.path.join(save_dir, f"{image_name}_comparison.png")
     plt.savefig(out_path, dpi=150)
@@ -149,8 +183,14 @@ def save_error_heatmap(res, image_name, save_dir="results"):
     os.makedirs(save_dir, exist_ok=True)
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
-    err_base = np.abs(res["original"] - res["baseline"])
-    err_gnn = np.abs(res["original"] - res["gnn"])
+    is_color = res.get("is_color", False)
+    if is_color:
+        err_base = np.mean(np.abs(res["original"] - res["baseline"]), axis=-1)
+        err_gnn = np.mean(np.abs(res["original"] - res["gnn"]), axis=-1)
+    else:
+        err_base = np.abs(res["original"] - res["baseline"])
+        err_gnn = np.abs(res["original"] - res["gnn"])
+
     vmax = max(err_base.max(), 0.15)
 
     im1 = axes[0].imshow(err_base, cmap="hot", vmin=0, vmax=vmax)
