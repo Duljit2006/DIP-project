@@ -35,6 +35,7 @@ from scipy.fft import dctn
 import torch
 import torch.nn as nn
 
+from src.device_utils import get_optimal_device
 from src.dataset import get_zigzag_indices, get_dct_dataloader
 from src.models import FrequencyGNN
 
@@ -126,13 +127,8 @@ def load_dataset_blocks(folder_path: str, cutoff: int = 15, max_images: int = No
 # =============================================================================
 
 def train(args):
-    # Determine device
-    if args.device == "cuda" and torch.cuda.is_available():
-        device = torch.device("cuda")
-        print(f"Using GPU: {torch.cuda.get_device_name(0)}")
-    else:
-        device = torch.device("cpu")
-        print("Using CPU")
+    # Intelligent device selection (Dedicated GPU -> Integrated GPU -> CPU)
+    device, device_info = get_optimal_device(preference=args.device, verbose=True)
 
     # 1. Load Data
     X_train, Y_train = load_dataset_blocks(
@@ -243,8 +239,8 @@ if __name__ == "__main__":
                         help="Epoch interval for StepLR learning rate decay (default: 15).")
     parser.add_argument("--max_images", type=int, default=None,
                         help="Optional cap on number of images to use (useful for fast debugging).")
-    parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "cuda"],
-                        help="Device to train on ('cpu' or 'cuda').")
+    parser.add_argument("--device", type=str, default="auto",
+                        help="Device to train on ('auto' for priority: Dedicated GPU > Integrated GPU > CPU, or 'cuda', 'mps', 'xpu', 'directml', 'cpu').")
 
     args = parser.parse_args()
     train(args)

@@ -25,12 +25,14 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from src.cleanup import clean_all
 clean_all(clear_results=True)
 
+import argparse
 import glob
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
+from src.device_utils import get_optimal_device
 from src.dct_utils import load_and_slice, apply_dct_and_truncate, reconstruct_from_dct
 from src.metrics import calculate_psnr, calculate_ssim
 from src.dataset import create_zigzag_mask, get_dct_dataloader
@@ -168,56 +170,48 @@ def save_error_heatmap(res, image_name, save_dir="results"):
     return out_path
 
 
-def main():
-    print("=" * 72)
-    print("  FINAL GNN MODEL EVALUATION & BENCHMARK COMPARISON")
-    print("=" * 72)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Evaluate FrequencyGNN against classical baseline.")
+    parser.add_argument("--dataset", type=str, default="Set14", choices=["Set14", "Set5", "all"],
+                        help="Benchmark dataset to evaluate on ('Set14', 'Set5', or 'all'). Default: Set14.")
+    parser.add_argument("--device", type=str, default="auto",
+                        help="Hardware accelerator ('auto', 'cuda', 'mps', 'xpu', 'directml', 'cpu'). Default: auto.")
+    parser.add_argument("--cutoff", type=int, default=15,
+                        help="Preserved low-frequency coefficients (default: 15).")
+    parser.add_argument("--save_dir", type=str, default="results",
+                        help="Directory to save visual comparison plots and scores (default: results).")
+    return parser.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Inference device: {device}")
 
-    # Check for trained checkpoint
-    checkpoint_path = os.path.join("checkpoints", "model.pth")
-    if not os.path.exists(checkpoint_path):
-        print(f"\n[ERROR] Model checkpoint not found at: {checkpoint_path}")
-        print("Please run 'python train.py' first to generate model weights.")
-        return
+def evaluate_dataset(model, dataset_name, cutoff=15, device="cpu", save_dir="results"):
+    images = sorted(glob.glob(os.path.join("datasets", dataset_name, "*.png")))
+    if not images:
+        print(f"[WARNING] No images found in datasets/{dataset_name}")
+        return []
 
-    # Load model
-    model = FrequencyGNN(in_channels=3, hidden_channels=128, num_layers=3, dropout=0.0).to(device)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-    print(f"Loaded trained weights from: {checkpoint_path}\n")
-
-    # Evaluate on Set14
-    set14_images = sorted(glob.glob(os.path.join("datasets", "Set14", "*.png")))
-    if not set14_images:
-        print("[WARNING] No images found in datasets/Set14")
-        return
-
-    print(f"Evaluating {len(set14_images)} images from Set14 Benchmark...\n")
+    print(f"Evaluating {len(images)} images from {dataset_name} Benchmark...\n")
     results = []
     lines = []
     lines.append("=" * 78)
-    lines.append("  BENCHMARK EVALUATION RESULTS: Set14 (Baseline vs GNN)")
+    lines.append(f"  BENCHMARK EVALUATION RESULTS: {dataset_name} (Baseline vs GNN)")
     lines.append("=" * 78)
     lines.append(f"{'Image':<18} | {'Baseline PSNR':<14} | {'GNN PSNR':<14} | {'Gain (dB)':<10} | {'GNN SSIM':<8}")
     lines.append("-" * 78)
 
-    for path in set14_images:
+    for path in images:
         fname = os.path.basename(path)
         base_name = os.path.splitext(fname)[0]
-        res = evaluate_image(model, path, cutoff=15, device=device)
+        res = evaluate_image(model, path, cutoff=cutoff, device=device)
         results.append(res)
 
-        # Save visual comparison and error heatmap
-        comp_path = save_visual_comparison(res, base_name)
-        heat_path = save_error_heatmap(res, base_name)
+        save_visual_comparison(res, f"{dataset_name}_{base_name}", save_dir=save_dir)
+        save_error_heatmap(res, f"{dataset_name}_{base_name}", save_dir=save_dir)
 
         gain_prefix = "+" if res['psnr_gain'] >= 0 else ""
         gain_str = f"{gain_prefix}{res['psnr_gain']:.2f} dB"
         line = f"{fname:<18} | {res['baseline_psnr']:>6.2f} dB       | {res['gnn_psnr']:>6.2f} dB       | {gain_str:>9}  | {res['gnn_ssim']:>6.4f}"
         lines.append(line)
-        print(f"  Processed {fname:<18} -> Baseline: {res['baseline_psnr']:.2f} dB | GNN: {res['gnn_psnr']:.2f} dB ({gain_str})")
+        print(f"  [{dataset_name}] Processed {fname:<18} -> Baseline: {res['baseline_psnr']:.2f} dB | GNN: {res['gnn_psnr']:.2f} dB ({gain_str})")
 
     avg_base_psnr = float(np.mean([r["baseline_psnr"] for r in results]))
     avg_gnn_psnr = float(np.mean([r["gnn_psnr"] for r in results]))
@@ -232,13 +226,46 @@ def main():
 
     report_text = "\n".join(lines)
     print("\n" + report_text + "\n")
+    return report_text
+
+
+def main():
+    args = parse_args()
+
+    # Intelligent device selection (Dedicated GPU -> Integrated GPU -> CPU)
+    device, device_info = get_optimal_device(preference=args.device, verbose=True)
+
+    # Check for trained checkpoint
+    checkpoint_path = os.path.join("checkpoints", "model.pth")
+    if not os.path.exists(checkpoint_path):
+        print(f"\n[ERROR] Model checkpoint not found at: {checkpoint_path}")
+        print("Please run 'python train.py' first to generate model weights.")
+        return
+
+    # Load model onto optimal device
+    model = FrequencyGNN(in_channels=3, hidden_channels=128, num_layers=3, dropout=0.0).to(device)
+    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    print(f"Loaded trained weights from: {checkpoint_path} onto {device}\n")
+
+    os.makedirs(args.save_dir, exist_ok=True)
+    all_reports = []
+
+    if args.dataset in ("Set14", "all"):
+        rep14 = evaluate_dataset(model, "Set14", cutoff=args.cutoff, device=device, save_dir=args.save_dir)
+        if rep14:
+            all_reports.append(rep14)
+
+    if args.dataset in ("Set5", "all"):
+        rep5 = evaluate_dataset(model, "Set5", cutoff=args.cutoff, device=device, save_dir=args.save_dir)
+        if rep5:
+            all_reports.append(rep5)
 
     # Save final report to results/
-    final_report_path = os.path.join("results", "final_evaluation_scores.txt")
+    final_report_path = os.path.join(args.save_dir, "final_evaluation_scores.txt")
     with open(final_report_path, "w") as f:
-        f.write(report_text)
+        f.write("\n\n".join(all_reports))
     print(f"[SUCCESS] Final evaluation score report saved to: {final_report_path}")
-    print(f"[SUCCESS] Visual comparison plots and error heatmaps saved into: results/\n")
+    print(f"[SUCCESS] Visual comparison plots and error heatmaps saved into: {args.save_dir}/\n")
 
 
 if __name__ == "__main__":
