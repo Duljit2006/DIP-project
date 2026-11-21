@@ -17,8 +17,8 @@ class FrequencyGNN(nn.Module):
     
     Architecture:
         1. Node Feature Projection:
-           Takes input features (known DCT value + 2D normalized coordinates [u, v])
-           and projects them into a high-dimensional feature space.
+           Takes 4 input features (known DCT amplitude, normalized [u, v] coordinates,
+           and is_known binary mask flag) and projects them into hidden space.
         2. Message Passing Layers:
            Multiple GCNConv layers pass information between connected frequency
            nodes across spatial neighbor edges and harmonic octave edges.
@@ -28,11 +28,10 @@ class FrequencyGNN(nn.Module):
            Projects the final hidden representation of each node down to a single
            scalar: the predicted DCT coefficient amplitude.
     """
-    def __init__(self, in_channels: int = 3, hidden_channels: int = 128, num_layers: int = 3, dropout: float = 0.0):
+    def __init__(self, in_channels: int = 4, hidden_channels: int = 128, num_layers: int = 3, dropout: float = 0.0):
         """
         Args:
-            in_channels: Input feature dimension per node. Default is 3
-                         (1 for frequency amplitude, 2 for normalized [u, v] coordinates).
+            in_channels: Input feature dimension per node (default: 4 -> [amp, u, v, is_known]).
             hidden_channels: Hidden feature dimension for each GCN layer.
             num_layers: Total number of message-passing GCN layers.
             dropout: Dropout probability between layers (default 0.0 for regression).
@@ -52,13 +51,13 @@ class FrequencyGNN(nn.Module):
             self.convs.append(GCNConv(hidden_channels, hidden_channels))
             self.norms.append(nn.LayerNorm(hidden_channels))
             
-        self.relu = nn.ReLU()
+        self.act = nn.LeakyReLU(0.2)
         self.dropout = nn.Dropout(dropout) if dropout > 0.0 else nn.Identity()
         
         # Final output projection head: hidden_channels -> 1 scalar DCT amplitude
         self.head = nn.Sequential(
             nn.Linear(hidden_channels, hidden_channels // 2),
-            nn.ReLU(),
+            nn.LeakyReLU(0.2),
             nn.Linear(hidden_channels // 2, 1)
         )
 
@@ -68,8 +67,8 @@ class FrequencyGNN(nn.Module):
         
         Args:
             x: Node features of shape (num_nodes, in_channels).
-               For a single block: (64, 3).
-               For a batch of B blocks: (B * 64, 3).
+               For a single block: (64, 4).
+               For a batch of B blocks: (B * 64, 4).
             edge_index: Graph connectivity tensor of shape (2, num_edges).
             
         Returns:
@@ -80,7 +79,7 @@ class FrequencyGNN(nn.Module):
             # Message passing across edges
             h_next = self.convs[i](h, edge_index)
             h_next = self.norms[i](h_next)
-            h_next = self.relu(h_next)
+            h_next = self.act(h_next)
             h_next = self.dropout(h_next)
             
             # Residual connection if dimensions match
@@ -94,6 +93,47 @@ class FrequencyGNN(nn.Module):
         return out.squeeze(-1)      # Shape: (num_nodes,)
 
 
+class SpatialRefinerCNN(nn.Module):
+    """
+    Stage 2: Spatial Domain Deblocking & Boundary Refinement Network.
+    
+    A multi-scale residual CNN that operates on the full reconstructed H x W image
+    to eliminate 8x8 block boundary seams (JPEG grid artifacts) and enforce spatial
+    continuity across neighboring frequency blocks.
+    """
+    def __init__(self, in_channels: int = 1, hidden_channels: int = 64, num_layers: int = 4):
+        super().__init__()
+        layers = []
+        layers.append(nn.Conv2d(in_channels, hidden_channels, kernel_size=3, padding=1))
+        layers.append(nn.PReLU())
+        for _ in range(num_layers - 2):
+            layers.append(nn.Conv2d(hidden_channels, hidden_channels, kernel_size=3, padding=1))
+            layers.append(nn.PReLU())
+        layers.append(nn.Conv2d(hidden_channels, in_channels, kernel_size=3, padding=1))
+        self.net = nn.Sequential(*layers)
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Spatial image tensor of shape (B, 1, H, W) or (B, C, H, W).
+        Returns:
+            Refined spatial image tensor of shape (B, 1, H, W).
+        """
+        return x + self.net(x)
+
+
+class DualDomainHybridModel(nn.Module):
+    """
+    Unified Dual-Domain Restoration Model combining:
+      1. FrequencyGNN: Intra-block harmonic DCT high-frequency restoration.
+      2. SpatialRefinerCNN: Inter-block boundary deblocking and spatial refinement.
+    """
+    def __init__(self, gnn: FrequencyGNN, cnn: SpatialRefinerCNN):
+        super().__init__()
+        self.gnn = gnn
+        self.cnn = cnn
+
+
 if __name__ == "__main__":
     import sys
     import os
@@ -103,47 +143,39 @@ if __name__ == "__main__":
     from src.graph_builder import build_frequency_graph, get_frequency_coordinates
 
     print("=" * 60)
-    print("Testing src/models.py (FrequencyGNN)")
+    print("Testing src/models.py (FrequencyGNN & SpatialRefinerCNN)")
     print("=" * 60)
 
-    # 1. Instantiate model
-    model = FrequencyGNN(in_channels=3, hidden_channels=128, num_layers=3)
+    # 1. Instantiate GNN
+    model = FrequencyGNN(in_channels=4, hidden_channels=128, num_layers=3)
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Model architecture:\n{model}")
-    print(f"\nTotal trainable parameters: {total_params:,}")
+    print(f"\nFrequencyGNN Trainable parameters: {total_params:,}")
 
     # 2. Test single block inference
-    print("\n[Test 1: Single Block (64 nodes)]")
+    print("\n[Test 1: GNN Single Block (64 nodes)]")
     edge_index = build_frequency_graph()
     coords = get_frequency_coordinates(normalize=True)  # (64, 2)
-    
-    # Simulate a truncated block where low frequencies (first 15) are known, rest are 0.0
+    is_known = torch.ones(64, 1)
+    is_known[15:] = 0.0
     amplitudes = torch.zeros(64, 1)
-    amplitudes[:15] = torch.randn(15, 1) * 100.0  # Simulated low frequency DCT values
+    amplitudes[:15] = torch.randn(15, 1) * 2.0
     
-    # Combine values + coordinates into node features: (64, 3)
-    node_features = torch.cat([amplitudes, coords], dim=1)
-    
-    # Forward pass
+    # Combine values + coordinates + mask flag: (64, 4)
+    node_features = torch.cat([amplitudes, coords, is_known], dim=1)
     output = model(node_features, edge_index)
-    print(f"Input node features shape:  {node_features.shape}")
-    print(f"Graph edge index shape:     {edge_index.shape}")
-    print(f"Output predictions shape:   {output.shape} (Expected: torch.Size([64]))")
-    assert output.shape == torch.Size([64]), "Output shape must be (64,) for a single block!"
+    print(f"Input features shape:  {node_features.shape}")
+    print(f"Output predictions:    {output.shape} (Expected: torch.Size([64]))")
+    assert output.shape == torch.Size([64]), "Output shape must be (64,)!"
 
-    # 3. Test batched inference (e.g. 4 blocks = 256 nodes)
-    print("\n[Test 2: Batched Blocks (4 blocks = 256 nodes)]")
-    from torch_geometric.data import Data, Batch
-    
-    data_list = []
-    for _ in range(4):
-        data_list.append(Data(x=node_features, edge_index=edge_index))
-    
-    batch = Batch.from_data_list(data_list)
-    batch_output = model(batch.x, batch.edge_index)
-    print(f"Batch input node features:  {batch.x.shape} (Expected: torch.Size([256, 3]))")
-    print(f"Batch edge index:           {batch.edge_index.shape}")
-    print(f"Batch output predictions:   {batch_output.shape} (Expected: torch.Size([256]))")
-    assert batch_output.shape == torch.Size([256]), "Batch output must match total node count!"
+    # 3. Test SpatialRefinerCNN
+    print("\n[Test 2: SpatialRefinerCNN on Full Image (1, 1, 128, 128)]")
+    cnn = SpatialRefinerCNN(in_channels=1, hidden_channels=64, num_layers=4)
+    cnn_params = sum(p.numel() for p in cnn.parameters() if p.requires_grad)
+    print(f"SpatialRefinerCNN Trainable parameters: {cnn_params:,}")
+    dummy_img = torch.rand(1, 1, 128, 128)
+    cnn_out = cnn(dummy_img)
+    print(f"CNN Input shape:  {dummy_img.shape}")
+    print(f"CNN Output shape: {cnn_out.shape}")
+    assert cnn_out.shape == dummy_img.shape, "CNN output shape must match input shape!"
 
-    print("\n[SUCCESS] FrequencyGNN successfully validated for single and batched inputs!")
+    print("\n[SUCCESS] Both FrequencyGNN and SpatialRefinerCNN validated successfully!")

@@ -92,6 +92,7 @@ class DCTGraphDataset(Dataset):
         self.edge_index = build_frequency_graph()                  # Shape: (2, 500)
         self.coords = get_frequency_coordinates(normalize=True)    # Shape: (64, 2)
         self.missing_mask = create_zigzag_mask(cutoff=cutoff)      # Shape: (64,)
+        self.is_known = (~self.missing_mask).float().unsqueeze(1) # Shape: (64, 1) [1.0 = known low freq, 0.0 = missing]
 
     def len(self) -> int:
         return len(self.X)
@@ -99,12 +100,13 @@ class DCTGraphDataset(Dataset):
     def get(self, idx: int) -> Data:
         """
         Constructs and returns a single Graph Data object for block at index `idx`.
+        Node features (64, 4): [amplitude, u_norm, v_norm, is_known_flag]
         """
         # Node amplitude values: shape (64, 1)
         amp = self.X[idx].unsqueeze(1)
         
-        # Node features: concatenate [amplitude, u_norm, v_norm] -> shape (64, 3)
-        node_features = torch.cat([amp, self.coords], dim=1)
+        # Node features: concatenate [amplitude, u_norm, v_norm, is_known] -> shape (64, 4)
+        node_features = torch.cat([amp, self.coords, self.is_known], dim=1)
         
         # Ground truth target: shape (64,)
         target = self.Y[idx]
