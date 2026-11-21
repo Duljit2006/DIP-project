@@ -15,6 +15,9 @@ import glob
 import cv2
 import numpy as np
 
+# Prevent Python from writing bytecode cache (.pyc)
+sys.dont_write_bytecode = True
+
 # Ensure project root is in sys.path so 'src' imports work from anywhere
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -137,6 +140,12 @@ def print_evaluation_table(dataset_name, results, avg_psnr, avg_ssim, cutoff=15)
 
 
 if __name__ == "__main__":
+    try:
+        from src.cleanup import clean_all
+    except ImportError:
+        from cleanup import clean_all
+    clean_all(clear_results=True)
+
     print("\n[INFO] Running Classical DIP Metrics & Baseline Benchmarking...\n")
     all_reports = []
 

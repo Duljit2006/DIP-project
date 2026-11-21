@@ -15,6 +15,17 @@ Workflow:
 
 import os
 import sys
+
+# Prevent Python from writing bytecode cache (.pyc)
+sys.dont_write_bytecode = True
+
+# Ensure project root is in sys.path
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+# Immediately delete previous results and bytecode caches before execution
+from src.cleanup import clean_all
+clean_all(clear_results=True)
+
 import glob
 import time
 import argparse
@@ -24,8 +35,6 @@ from scipy.fft import dctn
 import torch
 import torch.nn as nn
 
-# Ensure project root is in sys.path
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from src.dataset import get_zigzag_indices, get_dct_dataloader
 from src.models import FrequencyGNN
 

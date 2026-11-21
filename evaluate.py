@@ -14,14 +14,23 @@ JPEG-style baseline across benchmark datasets (Set5, Set14):
 
 import os
 import sys
+
+# Prevent Python from writing bytecode cache (.pyc)
+sys.dont_write_bytecode = True
+
+# Ensure project root is in sys.path
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+# Immediately delete previous results and bytecode caches before execution
+from src.cleanup import clean_all
+clean_all(clear_results=True)
+
 import glob
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
-# Ensure project root is in sys.path
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from src.dct_utils import load_and_slice, apply_dct_and_truncate, reconstruct_from_dct
 from src.metrics import calculate_psnr, calculate_ssim
 from src.dataset import create_zigzag_mask, get_dct_dataloader
