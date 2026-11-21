@@ -4,7 +4,7 @@ evaluate.py - Benchmark Evaluation and Visual Verification
 Lead: Digital Image Processing & Evaluation Lead (HER Track)
 
 This script evaluates the trained FrequencyGNN model against the classical
-JPEG-style baseline across benchmark datasets (Set5, Set14):
+JPEG-style baseline across benchmark datasets (Set14, Set14):
 1. Loads trained weights from checkpoints/model.pth.
 2. Runs batch inference on test images to predict missing high-frequency coefficients.
 3. Reconstructs full images using 2D-IDCT.
@@ -188,22 +188,22 @@ def main():
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     print(f"Loaded trained weights from: {checkpoint_path}\n")
 
-    # Evaluate on Set5
-    set5_images = sorted(glob.glob(os.path.join("datasets", "Set5", "*.png")))
-    if not set5_images:
-        print("[WARNING] No images found in datasets/Set5")
+    # Evaluate on Set14
+    set14_images = sorted(glob.glob(os.path.join("datasets", "Set14", "*.png")))
+    if not set14_images:
+        print("[WARNING] No images found in datasets/Set14")
         return
 
-    print(f"Evaluating {len(set5_images)} images from Set5 Benchmark...\n")
+    print(f"Evaluating {len(set14_images)} images from Set14 Benchmark...\n")
     results = []
     lines = []
     lines.append("=" * 78)
-    lines.append("  BENCHMARK EVALUATION RESULTS: Set5 (Baseline vs GNN)")
+    lines.append("  BENCHMARK EVALUATION RESULTS: Set14 (Baseline vs GNN)")
     lines.append("=" * 78)
     lines.append(f"{'Image':<18} | {'Baseline PSNR':<14} | {'GNN PSNR':<14} | {'Gain (dB)':<10} | {'GNN SSIM':<8}")
     lines.append("-" * 78)
 
-    for path in set5_images:
+    for path in set14_images:
         fname = os.path.basename(path)
         base_name = os.path.splitext(fname)[0]
         res = evaluate_image(model, path, cutoff=15, device=device)
