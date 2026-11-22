@@ -127,11 +127,24 @@ class DualDomainHybridModel(nn.Module):
     Unified Dual-Domain Restoration Model combining:
       1. FrequencyGNN: Intra-block harmonic DCT high-frequency restoration.
       2. SpatialRefinerCNN: Inter-block boundary deblocking and spatial refinement.
+
+    Supports two directional configurations:
+      - GNN -> CNN: Frequency GNN restores missing ACs, then Spatial CNN deblocks.
+      - CNN -> GNN: Spatial CNN deblocks first, then 2D-DCT projects to frequency domain
+                    with Hard Spectral Consistency (locking true low frequencies).
     """
     def __init__(self, gnn: FrequencyGNN, cnn: SpatialRefinerCNN):
         super().__init__()
         self.gnn = gnn
         self.cnn = cnn
+
+    def forward_gnn_then_cnn(self, gnn_Y: torch.Tensor) -> torch.Tensor:
+        """Applies spatial refinement CNN on top of GNN reconstructed luminance."""
+        return self.cnn(gnn_Y)
+
+    def forward_cnn_then_spectral(self, base_Y: torch.Tensor) -> torch.Tensor:
+        """Applies spatial refinement CNN on baseline JPEG luminance."""
+        return self.cnn(base_Y)
 
 
 if __name__ == "__main__":

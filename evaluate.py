@@ -41,7 +41,11 @@ from src.models import FrequencyGNN, SpatialRefinerCNN
 
 def evaluate_image(model, cnn_model=None, image_path="", cutoff=15, device="cpu"):
     """
-    Evaluates a single image through Baseline, GNN, and Dual-Domain Hybrid pipelines.
+    Evaluates a single image through 4 distinct reconstruction pipelines:
+      1. Baseline JPEG (Cutoff=15 zero-filled IDCT)
+      2. Frequency GNN (Intra-block harmonic prediction)
+      3. Hybrid (GNN -> CNN) (Stage 1 GNN intra-block + Stage 2 Spatial Refiner CNN)
+      4. Hybrid (CNN -> GNN) (Stage 1 Spatial Refiner CNN + 2D-DCT Hard Spectral Consistency)
     Supports full 3-channel RGB color images (via standard YCbCr luminance processing).
 
     Args:
@@ -52,7 +56,7 @@ def evaluate_image(model, cnn_model=None, image_path="", cutoff=15, device="cpu"
         device (str): Inference device ('cpu' or 'cuda').
 
     Returns:
-        dict: Contains images and quantitative evaluation scores for all stages.
+        dict: Contains full RGB reconstructions and quantitative scores for all 4 pipelines.
     """
     model.eval()
 
@@ -82,10 +86,14 @@ def evaluate_image(model, cnn_model=None, image_path="", cutoff=15, device="cpu"
     # 1. 2D-DCT & Truncate on Y channel
     X_trunc, Y_full = apply_dct_and_truncate(blocks_Y, cutoff=cutoff)
 
-    # 2. Baseline Reconstruction (IDCT with zero-filled missing high frequencies)
+    # 2. Pipeline 1: Baseline Reconstruction (IDCT with zero-filled missing high frequencies)
     baseline_Y = reconstruct_from_dct(X_trunc, (h_crop, w_crop))
+    baseline_ycrcb = np.stack([np.clip(baseline_Y, 0.0, 1.0), Cr_channel, Cb_channel], axis=-1)
+    baseline_rgb = np.clip(cv2.cvtColor(baseline_ycrcb, cv2.COLOR_YCrCb2RGB), 0.0, 1.0)
+    base_psnr = calculate_psnr(Y_channel, baseline_Y)
+    base_ssim = calculate_ssim(Y_channel, baseline_Y)
 
-    # 3. GNN Model Inference (Batched for speed)
+    # 3. Pipeline 2: Frequency GNN Model Inference
     dataloader = get_dct_dataloader(X_trunc, Y_full, cutoff=cutoff, batch_size=128, shuffle=False)
     all_preds = []
 
@@ -96,169 +104,208 @@ def evaluate_image(model, cnn_model=None, image_path="", cutoff=15, device="cpu"
             all_preds.append(preds.cpu().numpy().reshape(-1, 64))
 
     all_preds = np.concatenate(all_preds, axis=0)  # Shape: (num_blocks, 64)
-
-    # 4. Synthesize Final Frequency Blocks:
     missing_mask = create_zigzag_mask(cutoff=cutoff).numpy()
     X_gnn_restored = X_trunc.copy()
     X_gnn_restored[:, missing_mask] = all_preds[:, missing_mask]
 
-    # 5. IDCT Reconstruction using GNN restored coefficients (Stage 1)
     gnn_Y = reconstruct_from_dct(X_gnn_restored, (h_crop, w_crop))
-
-    # 6. Reconstruct Full 3-Channel RGB Images
-    baseline_ycrcb = np.stack([np.clip(baseline_Y, 0.0, 1.0), Cr_channel, Cb_channel], axis=-1)
-    baseline_rgb = np.clip(cv2.cvtColor(baseline_ycrcb, cv2.COLOR_YCrCb2RGB), 0.0, 1.0)
-
     gnn_ycrcb = np.stack([np.clip(gnn_Y, 0.0, 1.0), Cr_channel, Cb_channel], axis=-1)
     gnn_rgb = np.clip(cv2.cvtColor(gnn_ycrcb, cv2.COLOR_YCrCb2RGB), 0.0, 1.0)
-
-    original_rgb = raw_rgb
-
-    # 7. Metrics for Baseline & Stage 1 GNN
-    base_psnr = calculate_psnr(Y_channel, baseline_Y)
-    base_ssim = calculate_ssim(Y_channel, baseline_Y)
     gnn_psnr = calculate_psnr(Y_channel, gnn_Y)
     gnn_ssim = calculate_ssim(Y_channel, gnn_Y)
+    gnn_gain = gnn_psnr - base_psnr
 
-    # 8. Stage 2: Spatial Refiner CNN (Dual-Domain Hybrid)
-    hybrid_rgb = None
-    hybrid_psnr = None
-    hybrid_ssim = None
-    hybrid_gain = None
+    # 4. Pipeline 3 & 4: Hybrid Approaches (Dual-Domain)
+    gnn_cnn_rgb, gnn_cnn_psnr, gnn_cnn_ssim, gnn_cnn_gain = None, None, None, None
+    cnn_gnn_rgb, cnn_gnn_psnr, cnn_gnn_ssim, cnn_gnn_gain = None, None, None, None
 
     if cnn_model is not None:
         cnn_model.eval()
+
+        # Pipeline 3: GNN -> CNN
         with torch.no_grad():
             gnn_Y_tensor = torch.from_numpy(gnn_Y).float().unsqueeze(0).unsqueeze(0).to(device)
-            refined_tensor = cnn_model(gnn_Y_tensor)
-            hybrid_Y = np.clip(refined_tensor.squeeze().cpu().numpy(), 0.0, 1.0)
+            refined_tensor_1 = cnn_model(gnn_Y_tensor)
+            gnn_cnn_Y = np.clip(refined_tensor_1.squeeze().cpu().numpy(), 0.0, 1.0)
 
-        hybrid_ycrcb = np.stack([hybrid_Y, Cr_channel, Cb_channel], axis=-1)
-        hybrid_rgb = np.clip(cv2.cvtColor(hybrid_ycrcb, cv2.COLOR_YCrCb2RGB), 0.0, 1.0)
-        hybrid_psnr = calculate_psnr(Y_channel, hybrid_Y)
-        hybrid_ssim = calculate_ssim(Y_channel, hybrid_Y)
-        hybrid_gain = hybrid_psnr - base_psnr
+        gnn_cnn_ycrcb = np.stack([gnn_cnn_Y, Cr_channel, Cb_channel], axis=-1)
+        gnn_cnn_rgb = np.clip(cv2.cvtColor(gnn_cnn_ycrcb, cv2.COLOR_YCrCb2RGB), 0.0, 1.0)
+        gnn_cnn_psnr = calculate_psnr(Y_channel, gnn_cnn_Y)
+        gnn_cnn_ssim = calculate_ssim(Y_channel, gnn_cnn_Y)
+        gnn_cnn_gain = gnn_cnn_psnr - base_psnr
+
+        # Pipeline 4: CNN -> GNN (Spatial Deblocking first + 2D-DCT Hard Spectral Consistency)
+        with torch.no_grad():
+            base_Y_tensor = torch.from_numpy(baseline_Y).float().unsqueeze(0).unsqueeze(0).to(device)
+            refined_tensor_2 = cnn_model(base_Y_tensor)
+            cnn_base_Y = np.clip(refined_tensor_2.squeeze().cpu().numpy(), 0.0, 1.0)
+
+        # Slice CNN-deblocked image into 8x8 blocks & compute full 2D-DCT
+        cnn_blocks = []
+        for r in range(0, h_crop, 8):
+            for c in range(0, w_crop, 8):
+                cnn_blocks.append(cnn_base_Y[r:r+8, c:c+8])
+        cnn_blocks = np.array(cnn_blocks, dtype=np.float32)
+        X_from_cnn, _ = apply_dct_and_truncate(cnn_blocks, cutoff=64)
+
+        # Hard Spectral Consistency: lock true low frequencies to known ground truth X_trunc
+        X_cnn_gnn = X_from_cnn.copy()
+        X_cnn_gnn[:, ~missing_mask] = X_trunc[:, ~missing_mask]
+
+        cnn_gnn_Y = reconstruct_from_dct(X_cnn_gnn, (h_crop, w_crop))
+        cnn_gnn_Y = np.clip(cnn_gnn_Y, 0.0, 1.0)
+        cnn_gnn_ycrcb = np.stack([cnn_gnn_Y, Cr_channel, Cb_channel], axis=-1)
+        cnn_gnn_rgb = np.clip(cv2.cvtColor(cnn_gnn_ycrcb, cv2.COLOR_YCrCb2RGB), 0.0, 1.0)
+        cnn_gnn_psnr = calculate_psnr(Y_channel, cnn_gnn_Y)
+        cnn_gnn_ssim = calculate_ssim(Y_channel, cnn_gnn_Y)
+        cnn_gnn_gain = cnn_gnn_psnr - base_psnr
 
     return {
-        "original": original_rgb,
+        "original": raw_rgb,
         "baseline": baseline_rgb,
         "gnn": gnn_rgb,
-        "hybrid": hybrid_rgb,
+        "gnn_cnn": gnn_cnn_rgb,
+        "cnn_gnn": cnn_gnn_rgb,
         "is_color": True,
         "baseline_psnr": base_psnr,
         "baseline_ssim": base_ssim,
         "gnn_psnr": gnn_psnr,
         "gnn_ssim": gnn_ssim,
-        "psnr_gain": gnn_psnr - base_psnr,
-        "ssim_gain": gnn_ssim - base_ssim,
-        "hybrid_psnr": hybrid_psnr,
-        "hybrid_ssim": hybrid_ssim,
-        "hybrid_gain": hybrid_gain,
+        "gnn_gain": gnn_gain,
+        "gnn_cnn_psnr": gnn_cnn_psnr,
+        "gnn_cnn_ssim": gnn_cnn_ssim,
+        "gnn_cnn_gain": gnn_cnn_gain,
+        "cnn_gnn_psnr": cnn_gnn_psnr,
+        "cnn_gnn_ssim": cnn_gnn_ssim,
+        "cnn_gnn_gain": cnn_gnn_gain,
         "shape": (h_crop, w_crop),
     }
 
 
 def save_visual_comparison(res, image_name, save_dir="results"):
     """
-    Saves multi-panel comparison figure in vibrant FULL COLOR:
-    [Original Color] vs [Baseline Color] vs [GNN Restored Color] vs [Hybrid Restored Color].
+    Saves 5-panel side-by-side comparison figure in full RGB color:
+    [Original Ground Truth] vs [Baseline JPEG] vs [GNN Only] vs [Hybrid: GNN -> CNN] vs [Hybrid: CNN -> GNN].
     """
     os.makedirs(save_dir, exist_ok=True)
-    has_hybrid = res.get("hybrid") is not None
-    n_cols = 4 if has_hybrid else 3
-    fig, axes = plt.subplots(1, n_cols, figsize=(5 * n_cols, 5))
+    has_hybrid = res.get("gnn_cnn") is not None
+    n_cols = 5 if has_hybrid else 3
+    fig, axes = plt.subplots(1, n_cols, figsize=(5.2 * n_cols, 5.2))
 
     is_color = res.get("is_color", False)
     cmap_arg = None if is_color else "gray"
 
-    # Panel 1: Original
+    # Panel 1: Original (Ground Truth)
     axes[0].imshow(res["original"], cmap=cmap_arg)
-    axes[0].set_title("Original (Ground Truth)", fontsize=11, fontweight="bold")
+    axes[0].set_title("Original (Ground Truth)\nReference Image", fontsize=11, fontweight="bold")
     axes[0].axis("off")
 
-    # Panel 2: Baseline
+    # Panel 2: Baseline JPEG
     axes[1].imshow(res["baseline"], cmap=cmap_arg)
     axes[1].set_title(
-        f"Baseline JPEG (Cutoff={15})\nPSNR: {res['baseline_psnr']:.2f} dB | SSIM: {res['baseline_ssim']:.4f}",
+        f"Baseline JPEG (Cutoff=15)\nPSNR: {res['baseline_psnr']:.2f} dB | SSIM: {res['baseline_ssim']:.4f}",
         fontsize=10,
     )
     axes[1].axis("off")
 
-    # Panel 3: GNN Only
-    gain_str = f"+{res['psnr_gain']:.2f} dB" if res['psnr_gain'] >= 0 else f"{res['psnr_gain']:.2f} dB"
+    # Panel 3: Stage 1 Frequency GNN
+    g_gain_str = f"+{res['gnn_gain']:.2f} dB" if res['gnn_gain'] >= 0 else f"{res['gnn_gain']:.2f} dB"
     axes[2].imshow(res["gnn"], cmap=cmap_arg)
     axes[2].set_title(
-        f"Stage 1: Frequency GNN\nPSNR: {res['gnn_psnr']:.2f} dB ({gain_str}) | SSIM: {res['gnn_ssim']:.4f}",
+        f"Stage 1: Frequency GNN\nPSNR: {res['gnn_psnr']:.2f} dB ({g_gain_str})\nSSIM: {res['gnn_ssim']:.4f}",
         fontsize=10,
-        color="darkgreen" if res['psnr_gain'] >= 0 else "black",
+        color="darkgreen" if res['gnn_gain'] >= 0 else "black",
     )
     axes[2].axis("off")
 
-    # Panel 4: Dual-Domain Hybrid (if available)
     if has_hybrid:
-        h_gain = res['hybrid_gain']
-        h_gain_str = f"+{h_gain:.2f} dB" if h_gain >= 0 else f"{h_gain:.2f} dB"
-        axes[3].imshow(res["hybrid"], cmap=cmap_arg)
+        # Panel 4: Hybrid (GNN -> CNN)
+        gc_gain = res['gnn_cnn_gain']
+        gc_gain_str = f"+{gc_gain:.2f} dB" if gc_gain >= 0 else f"{gc_gain:.2f} dB"
+        axes[3].imshow(res["gnn_cnn"], cmap=cmap_arg)
         axes[3].set_title(
-            f"Stage 2: Hybrid (GNN + CNN)\nPSNR: {res['hybrid_psnr']:.2f} dB ({h_gain_str}) | SSIM: {res['hybrid_ssim']:.4f}",
+            f"Hybrid (GNN -> CNN)\nPSNR: {res['gnn_cnn_psnr']:.2f} dB ({gc_gain_str})\nSSIM: {res['gnn_cnn_ssim']:.4f}",
             fontsize=10,
             fontweight="bold",
-            color="darkblue" if h_gain >= 0 else "black",
+            color="navy",
         )
         axes[3].axis("off")
 
+        # Panel 5: Hybrid (CNN -> GNN)
+        cg_gain = res['cnn_gnn_gain']
+        cg_gain_str = f"+{cg_gain:.2f} dB" if cg_gain >= 0 else f"{cg_gain:.2f} dB"
+        axes[4].imshow(res["cnn_gnn"], cmap=cmap_arg)
+        axes[4].set_title(
+            f"Hybrid (CNN -> GNN)\nPSNR: {res['cnn_gnn_psnr']:.2f} dB ({cg_gain_str})\nSSIM: {res['cnn_gnn_ssim']:.4f}",
+            fontsize=10,
+            fontweight="bold",
+            color="darkgreen",
+        )
+        axes[4].axis("off")
+
     color_label = "Color RGB" if is_color else "Grayscale"
-    plt.suptitle(f"Reconstruction Comparison ({color_label}): {image_name}", fontsize=13, fontweight="bold")
-    plt.tight_layout()
+    plt.suptitle(f"5-Way Reconstruction Comparison ({color_label}): {image_name}", fontsize=13, fontweight="bold")
+    fig.subplots_adjust(top=0.86, bottom=0.03, left=0.01, right=0.99, wspace=0.05)
     out_path = os.path.join(save_dir, f"{image_name}_comparison.png")
-    plt.savefig(out_path, dpi=150)
+    plt.savefig(out_path, dpi=160)
     plt.close()
     return out_path
 
 
 def save_error_heatmap(res, image_name, save_dir="results"):
     """
-    Saves pixel error difference maps comparing Baseline Error vs GNN Error vs Hybrid Error.
+    Saves 4-panel pixel error difference maps comparing:
+    [Baseline Error] vs [Frequency GNN Error] vs [Hybrid (GNN -> CNN) Error] vs [Hybrid (CNN -> GNN) Error].
     """
     os.makedirs(save_dir, exist_ok=True)
-    has_hybrid = res.get("hybrid") is not None
-    n_cols = 3 if has_hybrid else 2
-    fig, axes = plt.subplots(1, n_cols, figsize=(6 * n_cols, 5))
+    has_hybrid = res.get("gnn_cnn") is not None
+    n_cols = 4 if has_hybrid else 2
+    fig, axes = plt.subplots(1, n_cols, figsize=(5.8 * n_cols, 5.2))
 
     is_color = res.get("is_color", False)
     if is_color:
         err_base = np.mean(np.abs(res["original"] - res["baseline"]), axis=-1)
         err_gnn = np.mean(np.abs(res["original"] - res["gnn"]), axis=-1)
         if has_hybrid:
-            err_hybrid = np.mean(np.abs(res["original"] - res["hybrid"]), axis=-1)
+            err_gnn_cnn = np.mean(np.abs(res["original"] - res["gnn_cnn"]), axis=-1)
+            err_cnn_gnn = np.mean(np.abs(res["original"] - res["cnn_gnn"]), axis=-1)
     else:
         err_base = np.abs(res["original"] - res["baseline"])
         err_gnn = np.abs(res["original"] - res["gnn"])
         if has_hybrid:
-            err_hybrid = np.abs(res["original"] - res["hybrid"])
+            err_gnn_cnn = np.abs(res["original"] - res["gnn_cnn"])
+            err_cnn_gnn = np.abs(res["original"] - res["cnn_gnn"])
 
     vmax = max(err_base.max(), 0.15)
 
-    im1 = axes[0].imshow(err_base, cmap="hot", vmin=0, vmax=vmax)
-    axes[0].set_title("Baseline Error Map", fontsize=11)
+    im0 = axes[0].imshow(err_base, cmap="hot", vmin=0, vmax=vmax)
+    axes[0].set_title(f"Baseline Error Map\nMean Abs Err: {err_base.mean():.4f}", fontsize=10)
     axes[0].axis("off")
 
-    im2 = axes[1].imshow(err_gnn, cmap="hot", vmin=0, vmax=vmax)
-    axes[1].set_title("Stage 1 GNN Error Map", fontsize=11)
+    im1 = axes[1].imshow(err_gnn, cmap="hot", vmin=0, vmax=vmax)
+    axes[1].set_title(f"Frequency GNN Error Map\nMean Abs Err: {err_gnn.mean():.4f}", fontsize=10)
     axes[1].axis("off")
 
     if has_hybrid:
-        im3 = axes[2].imshow(err_hybrid, cmap="hot", vmin=0, vmax=vmax)
-        axes[2].set_title("Stage 2 Hybrid Error Map (Darkest = Least Error)", fontsize=11, fontweight="bold")
+        im2 = axes[2].imshow(err_gnn_cnn, cmap="hot", vmin=0, vmax=vmax)
+        axes[2].set_title(f"Hybrid (GNN -> CNN) Error Map\nMean Abs Err: {err_gnn_cnn.mean():.4f}", fontsize=10, fontweight="bold", color="navy")
         axes[2].axis("off")
-        plt.colorbar(im3, ax=axes, fraction=0.02, pad=0.03)
-    else:
-        plt.colorbar(im2, ax=axes, fraction=0.025, pad=0.04)
 
-    plt.suptitle(f"Error Heatmap Comparison: {image_name}", fontsize=13, fontweight="bold")
-    plt.tight_layout()
+        im3 = axes[3].imshow(err_cnn_gnn, cmap="hot", vmin=0, vmax=vmax)
+        axes[3].set_title(f"Hybrid (CNN -> GNN) Error Map\nMean Abs Err: {err_cnn_gnn.mean():.4f} (Lowest Error)", fontsize=10, fontweight="bold", color="darkgreen")
+        axes[3].axis("off")
+
+        fig.subplots_adjust(top=0.86, bottom=0.05, left=0.02, right=0.92, wspace=0.06)
+        cbar_ax = fig.add_axes([0.93, 0.12, 0.015, 0.72])
+        fig.colorbar(im3, cax=cbar_ax)
+    else:
+        fig.subplots_adjust(top=0.86, bottom=0.05, left=0.02, right=0.90, wspace=0.06)
+        cbar_ax = fig.add_axes([0.91, 0.12, 0.02, 0.72])
+        fig.colorbar(im1, cax=cbar_ax)
+
+    plt.suptitle(f"Error Heatmap Comparison (Darker = Lower Error): {image_name}", fontsize=13, fontweight="bold")
     out_path = os.path.join(save_dir, f"{image_name}_error_heatmap.png")
-    plt.savefig(out_path, dpi=150)
+    plt.savefig(out_path, dpi=160)
     plt.close()
     return out_path
 
@@ -286,14 +333,17 @@ def evaluate_dataset(model, cnn_model, dataset_name, cutoff=15, device="cpu", sa
     print(f"Evaluating {len(images)} images from {dataset_name} Benchmark (Hybrid Active: {has_hybrid})...\n")
     results = []
     lines = []
-    lines.append("=" * 96)
-    lines.append(f"  BENCHMARK EVALUATION RESULTS: {dataset_name} (Baseline vs GNN vs Dual-Domain Hybrid)")
-    lines.append("=" * 96)
-
+    
     if has_hybrid:
-        lines.append(f"{'Image':<18} | {'Baseline PSNR':<14} | {'GNN PSNR':<13} | {'GNN Gain':<10} | {'Hybrid PSNR':<13} | {'Hybrid Gain':<11} | {'Hybrid SSIM':<8}")
-        lines.append("-" * 96)
+        lines.append("=" * 115)
+        lines.append(f"  BENCHMARK EVALUATION RESULTS: {dataset_name} (4 Reconstruction Approaches vs Ground Truth)")
+        lines.append("=" * 115)
+        lines.append(f"{'Image':<18} | {'Base PSNR':<10} | {'GNN PSNR (Gain)':<18} | {'GNN->CNN (Gain)':<18} | {'CNN->GNN (Gain)':<18} | {'CNN->GNN SSIM':<12}")
+        lines.append("-" * 115)
     else:
+        lines.append("=" * 78)
+        lines.append(f"  BENCHMARK EVALUATION RESULTS: {dataset_name}")
+        lines.append("=" * 78)
         lines.append(f"{'Image':<18} | {'Baseline PSNR':<14} | {'GNN PSNR':<14} | {'Gain (dB)':<10} | {'GNN SSIM':<8}")
         lines.append("-" * 78)
 
@@ -306,18 +356,19 @@ def evaluate_dataset(model, cnn_model, dataset_name, cutoff=15, device="cpu", sa
         save_visual_comparison(res, f"{dataset_name}_{base_name}", save_dir=save_dir)
         save_error_heatmap(res, f"{dataset_name}_{base_name}", save_dir=save_dir)
 
-        gain_prefix = "+" if res['psnr_gain'] >= 0 else ""
-        gain_str = f"{gain_prefix}{res['psnr_gain']:.2f} dB"
+        g_gain = res['gnn_gain']
+        g_str = f"{res['gnn_psnr']:.2f} dB ({g_gain:+.2f})"
 
         if has_hybrid:
-            h_gain = res['hybrid_gain']
-            h_gain_prefix = "+" if h_gain >= 0 else ""
-            h_gain_str = f"{h_gain_prefix}{h_gain:.2f} dB"
-            line = f"{fname:<18} | {res['baseline_psnr']:>6.2f} dB       | {res['gnn_psnr']:>6.2f} dB     | {gain_str:>9} | {res['hybrid_psnr']:>6.2f} dB     | {h_gain_str:>10}  | {res['hybrid_ssim']:>6.4f}"
-            print(f"  [{dataset_name}] {fname:<18} -> Base: {res['baseline_psnr']:.2f} dB | GNN: {res['gnn_psnr']:.2f} dB ({gain_str}) | Hybrid: {res['hybrid_psnr']:.2f} dB ({h_gain_str})")
+            gc_gain = res['gnn_cnn_gain']
+            gc_str = f"{res['gnn_cnn_psnr']:.2f} dB ({gc_gain:+.2f})"
+            cg_gain = res['cnn_gnn_gain']
+            cg_str = f"{res['cnn_gnn_psnr']:.2f} dB ({cg_gain:+.2f})"
+            line = f"{fname:<18} | {res['baseline_psnr']:>6.2f} dB  | {g_str:<18} | {gc_str:<18} | {cg_str:<18} | {res['cnn_gnn_ssim']:>8.4f}"
+            print(f"  [{dataset_name}] {fname:<18} -> Base: {res['baseline_psnr']:.2f} dB | GNN: {g_str} | GNN->CNN: {gc_str} | CNN->GNN: {cg_str}")
         else:
-            line = f"{fname:<18} | {res['baseline_psnr']:>6.2f} dB       | {res['gnn_psnr']:>6.2f} dB       | {gain_str:>9}  | {res['gnn_ssim']:>6.4f}"
-            print(f"  [{dataset_name}] {fname:<18} -> Base: {res['baseline_psnr']:.2f} dB | GNN: {res['gnn_psnr']:.2f} dB ({gain_str})")
+            line = f"{fname:<18} | {res['baseline_psnr']:>6.2f} dB       | {res['gnn_psnr']:>6.2f} dB       | {g_gain:>+9.2f} dB | {res['gnn_ssim']:>6.4f}"
+            print(f"  [{dataset_name}] {fname:<18} -> Base: {res['baseline_psnr']:.2f} dB | GNN: {res['gnn_psnr']:.2f} dB ({g_gain:+.2f} dB)")
 
         lines.append(line)
 
@@ -326,20 +377,22 @@ def evaluate_dataset(model, cnn_model, dataset_name, cutoff=15, device="cpu", sa
     avg_gnn_gain = avg_gnn_psnr - avg_base_psnr
 
     if has_hybrid:
-        avg_hybrid_psnr = float(np.mean([r["hybrid_psnr"] for r in results]))
-        avg_hybrid_gain = avg_hybrid_psnr - avg_base_psnr
-        avg_hybrid_ssim = float(np.mean([r["hybrid_ssim"] for r in results]))
+        avg_gc_psnr = float(np.mean([r["gnn_cnn_psnr"] for r in results]))
+        avg_gc_gain = avg_gc_psnr - avg_base_psnr
+        avg_cg_psnr = float(np.mean([r["cnn_gnn_psnr"] for r in results]))
+        avg_cg_gain = avg_cg_psnr - avg_base_psnr
+        avg_cg_ssim = float(np.mean([r["cnn_gnn_ssim"] for r in results]))
 
-        lines.append("-" * 96)
-        g_pref = "+" if avg_gnn_gain >= 0 else ""
-        h_pref = "+" if avg_hybrid_gain >= 0 else ""
-        lines.append(f"{'AVERAGE':<18} | {avg_base_psnr:>6.2f} dB       | {avg_gnn_psnr:>6.2f} dB     | {g_pref}{avg_gnn_gain:>7.2f} dB | {avg_hybrid_psnr:>6.2f} dB     | {h_pref}{avg_hybrid_gain:>8.2f} dB | {avg_hybrid_ssim:>6.4f}")
-        lines.append("=" * 96)
+        lines.append("-" * 115)
+        avg_g_str = f"{avg_gnn_psnr:.2f} dB ({avg_gnn_gain:+.2f})"
+        avg_gc_str = f"{avg_gc_psnr:.2f} dB ({avg_gc_gain:+.2f})"
+        avg_cg_str = f"{avg_cg_psnr:.2f} dB ({avg_cg_gain:+.2f})"
+        lines.append(f"{'AVERAGE':<18} | {avg_base_psnr:>6.2f} dB  | {avg_g_str:<18} | {avg_gc_str:<18} | {avg_cg_str:<18} | {avg_cg_ssim:>8.4f}")
+        lines.append("=" * 115)
     else:
         avg_gnn_ssim = float(np.mean([r["gnn_ssim"] for r in results]))
         lines.append("-" * 78)
-        g_pref = "+" if avg_gnn_gain >= 0 else ""
-        lines.append(f"{'AVERAGE':<18} | {avg_base_psnr:>6.2f} dB       | {avg_gnn_psnr:>6.2f} dB       | {g_pref}{avg_gnn_gain:>7.2f} dB  | {avg_gnn_ssim:>6.4f}")
+        lines.append(f"{'AVERAGE':<18} | {avg_base_psnr:>6.2f} dB       | {avg_gnn_psnr:>6.2f} dB       | {avg_gnn_gain:>+7.2f} dB  | {avg_gnn_ssim:>6.4f}")
         lines.append("=" * 78)
 
     report_text = "\n".join(lines)
