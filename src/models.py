@@ -61,18 +61,20 @@ class FrequencyGNN(nn.Module):
             nn.Linear(hidden_channels // 2, 1)
         )
 
-    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor, return_freq_only: bool = True) -> torch.Tensor:
         """
         Forward computation of the FrequencyGNN.
         
         Args:
             x: Node features of shape (num_nodes, in_channels).
-               For a single block: (64, 4).
-               For a batch of B blocks: (B * 64, 4).
+               For a single block: (64, in_channels) or (72, in_channels).
+               For a batch of B blocks: (B * 64, in_channels) or (B * 72, in_channels).
             edge_index: Graph connectivity tensor of shape (2, num_edges).
+            return_freq_only: If True and input is 72-node multi-block, returns only
+                              the 64 frequency node predictions of shape (B * 64,).
             
         Returns:
-            torch.Tensor of shape (num_nodes,) representing predicted DCT amplitudes.
+            torch.Tensor of shape (B * 64,) representing predicted DCT amplitudes.
         """
         h = x
         for i in range(self.num_layers):
@@ -89,8 +91,48 @@ class FrequencyGNN(nn.Module):
                 h = h_next
 
         # Predict scalar DCT coefficient for each node
-        out = self.head(h)          # Shape: (num_nodes, 1)
-        return out.squeeze(-1)      # Shape: (num_nodes,)
+        out = self.head(h).squeeze(-1)  # Shape: (num_nodes,)
+
+        # If 72-node multi-block graph is used and return_freq_only is True, slice first 64 nodes per block
+        if return_freq_only and (out.shape[0] % 72 == 0):
+            return out.view(-1, 72)[:, :64].reshape(-1)
+
+        return out
+
+
+class FrequencyWeightedL1Loss(nn.Module):
+    """
+    Component 2: Frequency-Weighted L1 Loss.
+    
+    Assigns higher penalty weights to the first missing mid-frequency harmonics (positions 15..30),
+    which carry 90%+ of the visible edge structure and contrast energy, and decaying weights
+    to high-frequency noise coefficients.
+    """
+    def __init__(self, cutoff: int = 15, decay_power: float = 0.5):
+        super().__init__()
+        self.cutoff = cutoff
+        ranks = torch.arange(1, 65 - cutoff, dtype=torch.float32)
+        raw_weights = 1.0 / (ranks ** decay_power)
+        # Normalize weights so mean is 1.0 (maintaining loss scale)
+        self.register_buffer("weights", raw_weights / raw_weights.mean())
+
+    def forward(self, preds: torch.Tensor, targets: torch.Tensor, missing_mask: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            preds: Predicted DCT coefficients of shape (B * 64,) or (B, 64)
+            targets: Ground truth DCT coefficients of shape (B * 64,) or (B, 64)
+            missing_mask: Boolean tensor of shape (64,) or (B * 64,) where True = missing
+        """
+        if missing_mask.shape[0] != 64:
+            mask_64 = missing_mask[:64]
+        else:
+            mask_64 = missing_mask
+
+        p_missing = preds.reshape(-1, 64)[:, mask_64]    # (B, 49)
+        t_missing = targets.reshape(-1, 64)[:, mask_64]  # (B, 49)
+        err = torch.abs(p_missing - t_missing)           # (B, 49)
+        weighted_err = err * self.weights.unsqueeze(0)   # (B, 49)
+        return weighted_err.mean()
 
 
 class SpatialRefinerCNN(nn.Module):

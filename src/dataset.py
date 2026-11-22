@@ -16,7 +16,12 @@ from torch_geometric.loader import DataLoader
 
 # Ensure src modules can be imported
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from src.graph_builder import build_frequency_graph, get_frequency_coordinates
+from src.graph_builder import (
+    build_frequency_graph,
+    get_frequency_coordinates,
+    build_multiblock_spatial_frequency_graph,
+    get_multiblock_coordinates,
+)
 
 
 def get_zigzag_indices():
@@ -54,45 +59,55 @@ def create_zigzag_mask(cutoff: int = 15) -> torch.Tensor:
 
 class DCTGraphDataset(Dataset):
     """
-    PyTorch Geometric Dataset for 8x8 DCT Frequency Blocks.
-    
-    Each item in the dataset is a torch_geometric.data.Data object with:
-        - x: (64, 3) Node features [amplitude, u_coord, v_coord]
-        - edge_index: (2, 500) Shared frequency graph connectivity
-        - y: (64,) Ground truth untouched DCT coefficients
-        - missing_mask: (64,) Boolean tensor (True = missing high-frequency node)
+    PyTorch Geometric Dataset for 8x8 DCT Frequency Blocks with Multi-Block Spatial Context.
+
+    Each item in the dataset is a torch_geometric.data.Data object with 72 nodes:
+      - Nodes 0..63: 64 frequency nodes with rich energy, orientation, and gradient features
+      - Nodes 64..71: 8 spatial boundary neighbor nodes (N, S, W, E, NW, NE, SW, SE)
+      - edge_index: (2, 652) spatial-frequency cross-domain graph connectivity
+      - y: (64,) ground-truth DCT coefficients of the center block
+      - missing_mask: (64,) boolean tensor (True = missing high-frequency node)
     """
-    def __init__(self, X_blocks, Y_blocks, cutoff: int = 15):
+    def __init__(self, X_blocks, Y_blocks, cutoff: int = 15, neighbor_contexts=None):
         """
         Args:
-            X_blocks: Array or Tensor of shape (N, 64) with truncated DCT values
-                      (high frequencies zeroed out).
+            X_blocks: Array or Tensor of shape (N, 64) with truncated DCT values.
             Y_blocks: Array or Tensor of shape (N, 64) with full ground truth DCT values.
             cutoff: Number of low-frequency coefficients preserved in zigzag scan.
+            neighbor_contexts: Optional array of shape (N, 8) with relative DC differences
+                               of the 8 neighbors [N, S, W, E, NW, NE, SW, SE].
         """
         super().__init__()
-        
+
         # Convert inputs to float32 tensors
         if isinstance(X_blocks, np.ndarray):
             self.X = torch.from_numpy(X_blocks).float()
         else:
             self.X = X_blocks.float()
-            
+
         if isinstance(Y_blocks, np.ndarray):
             self.Y = torch.from_numpy(Y_blocks).float()
         else:
             self.Y = Y_blocks.float()
-            
+
         assert len(self.X) == len(self.Y), "X and Y must have the exact same number of blocks!"
         assert self.X.shape[1] == 64 and self.Y.shape[1] == 64, "Blocks must contain 64 coefficients!"
 
         self.cutoff = cutoff
-        
-        # Precompute static graph topology shared across all 8x8 blocks
-        self.edge_index = build_frequency_graph()                  # Shape: (2, 500)
-        self.coords = get_frequency_coordinates(normalize=True)    # Shape: (64, 2)
-        self.missing_mask = create_zigzag_mask(cutoff=cutoff)      # Shape: (64,)
-        self.is_known = (~self.missing_mask).float().unsqueeze(1) # Shape: (64, 1) [1.0 = known low freq, 0.0 = missing]
+
+        if neighbor_contexts is not None:
+            if isinstance(neighbor_contexts, np.ndarray):
+                self.neighbor_contexts = torch.from_numpy(neighbor_contexts).float()
+            else:
+                self.neighbor_contexts = neighbor_contexts.float()
+        else:
+            self.neighbor_contexts = torch.zeros((len(self.X), 8), dtype=torch.float32)
+
+        # Precompute static 72-node graph topology and coordinates
+        self.edge_index = build_multiblock_spatial_frequency_graph()  # Shape: (2, 652)
+        self.coords = get_multiblock_coordinates(normalize=True)      # Shape: (72, 2)
+        self.missing_mask = create_zigzag_mask(cutoff=cutoff)         # Shape: (64,)
+        self.is_known_freq = (~self.missing_mask).float().unsqueeze(1) # Shape: (64, 1)
 
     def len(self) -> int:
         return len(self.X)
@@ -100,26 +115,65 @@ class DCTGraphDataset(Dataset):
     def get(self, idx: int) -> Data:
         """
         Constructs and returns a single Graph Data object for block at index `idx`.
-        Node features (64, 4): [amplitude, u_norm, v_norm, is_known_flag]
+        Node features (72, 10):
+          [amplitude, u_norm, v_norm, is_known, node_type, block_dc, ac_energy, hv_ratio, grad_x, grad_y]
         """
-        # Node amplitude values: shape (64, 1)
-        amp = self.X[idx].unsqueeze(1)
-        
-        # Node features: concatenate [amplitude, u_norm, v_norm, is_known] -> shape (64, 4)
-        node_features = torch.cat([amp, self.coords, self.is_known], dim=1)
-        
-        # Ground truth target: shape (64,)
-        target = self.Y[idx]
+        x_b = self.X[idx]                     # (64,)
+        x_2d = x_b.view(8, 8)
+        dc = x_2d[0, 0] / 8.0                 # Normalized DC
+        h_energy = torch.abs(x_2d[0, 1:4]).sum()
+        v_energy = torch.abs(x_2d[1:4, 0]).sum()
+        hv_ratio = (h_energy - v_energy) / (h_energy + v_energy + 1e-5)
+        ac_energy = torch.abs(x_b[1:self.cutoff]).sum()
+
+        diff_nb = self.neighbor_contexts[idx] # (8,)
+        grad_x = (diff_nb[3] - diff_nb[2]) / 16.0  # (E - W) / 2 / 8
+        grad_y = (diff_nb[1] - diff_nb[0]) / 16.0  # (S - N) / 2 / 8
+
+        # 1. 64 Frequency Nodes (node_type = 0.0)
+        amp_freq = x_b.unsqueeze(1)                                # (64, 1)
+        coords_freq = self.coords[:64]                             # (64, 2)
+        is_known_freq = self.is_known_freq                         # (64, 1)
+        type_freq = torch.zeros(64, 1, dtype=torch.float32)        # (64, 1)
+        dc_freq = torch.full((64, 1), dc, dtype=torch.float32)
+        ac_freq = torch.full((64, 1), ac_energy, dtype=torch.float32)
+        hv_freq = torch.full((64, 1), hv_ratio, dtype=torch.float32)
+        gx_freq = torch.full((64, 1), grad_x, dtype=torch.float32)
+        gy_freq = torch.full((64, 1), grad_y, dtype=torch.float32)
+
+        freq_features = torch.cat([
+            amp_freq, coords_freq, is_known_freq, type_freq,
+            dc_freq, ac_freq, hv_freq, gx_freq, gy_freq
+        ], dim=1)  # (64, 10)
+
+        # 2. 8 Spatial Neighbor Nodes (node_type = 1.0)
+        amp_nb = (diff_nb / 8.0).unsqueeze(1)                      # (8, 1)
+        coords_nb = self.coords[64:]                               # (8, 2)
+        is_known_nb = torch.ones(8, 1, dtype=torch.float32)        # (8, 1)
+        type_nb = torch.ones(8, 1, dtype=torch.float32)            # (8, 1)
+        dc_nb = torch.full((8, 1), dc, dtype=torch.float32) + amp_nb
+        ac_nb = torch.full((8, 1), ac_energy, dtype=torch.float32)
+        hv_nb = torch.full((8, 1), hv_ratio, dtype=torch.float32)
+        gx_nb = torch.full((8, 1), grad_x, dtype=torch.float32)
+        gy_nb = torch.full((8, 1), grad_y, dtype=torch.float32)
+
+        neighbor_features = torch.cat([
+            amp_nb, coords_nb, is_known_nb, type_nb,
+            dc_nb, ac_nb, hv_nb, gx_nb, gy_nb
+        ], dim=1)  # (8, 10)
+
+        # Combine all 72 nodes
+        node_features = torch.cat([freq_features, neighbor_features], dim=0)  # (72, 10)
 
         return Data(
             x=node_features,
             edge_index=self.edge_index,
-            y=target,
+            y=self.Y[idx],
             missing_mask=self.missing_mask
         )
 
 
-def get_dct_dataloader(X_blocks, Y_blocks, cutoff: int = 15, batch_size: int = 64, shuffle: bool = True):
+def get_dct_dataloader(X_blocks, Y_blocks, cutoff: int = 15, neighbor_contexts=None, batch_size: int = 64, shuffle: bool = True):
     """
     Convenience helper function to create a PyTorch Geometric DataLoader.
     
@@ -127,13 +181,14 @@ def get_dct_dataloader(X_blocks, Y_blocks, cutoff: int = 15, batch_size: int = 6
         X_blocks: Truncated DCT blocks (N, 64)
         Y_blocks: Ground-truth DCT blocks (N, 64)
         cutoff: Zigzag cutoff count
+        neighbor_contexts: Optional array of shape (N, 8) with neighbor DC differences
         batch_size: Number of 8x8 blocks per mini-batch
         shuffle: Whether to shuffle during training
         
     Returns:
         torch_geometric.loader.DataLoader
     """
-    dataset = DCTGraphDataset(X_blocks, Y_blocks, cutoff=cutoff)
+    dataset = DCTGraphDataset(X_blocks, Y_blocks, cutoff=cutoff, neighbor_contexts=neighbor_contexts)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
 
@@ -170,8 +225,8 @@ if __name__ == "__main__":
 
     # Inspect a single item
     sample_data = dataset[0]
-    print(f"Single graph x:      {sample_data.x.shape} (Expected: torch.Size([64, 3]))")
-    print(f"Single graph edges:  {sample_data.edge_index.shape} (Expected: torch.Size([2, 500]))")
+    print(f"Single graph x:      {sample_data.x.shape} (Expected: torch.Size([72, 10]))")
+    print(f"Single graph edges:  {sample_data.edge_index.shape} (Expected: torch.Size([2, 652]))")
     print(f"Single graph y:      {sample_data.y.shape} (Expected: torch.Size([64]))")
     print(f"Missing mask count:  {sample_data.missing_mask.sum().item()} missing nodes")
 
@@ -181,13 +236,13 @@ if __name__ == "__main__":
     first_batch = next(iter(loader))
 
     print(f"\n[Batching Test (batch_size = {batch_size})]")
-    print(f"Batch x shape:       {first_batch.x.shape} (Expected: torch.Size([{batch_size * 64}, 3]))")
-    print(f"Batch edge_index:    {first_batch.edge_index.shape} (Expected: torch.Size([2, {batch_size * 500}]))")
+    print(f"Batch x shape:       {first_batch.x.shape} (Expected: torch.Size([{batch_size * 72}, 10]))")
+    print(f"Batch edge_index:    {first_batch.edge_index.shape} (Expected: torch.Size([2, {batch_size * 652}]))")
     print(f"Batch y shape:       {first_batch.y.shape} (Expected: torch.Size([{batch_size * 64}]))")
     print(f"Batch graphs count:  {first_batch.num_graphs} (Expected: {batch_size})")
 
-    assert first_batch.x.shape == torch.Size([batch_size * 64, 3])
-    assert first_batch.edge_index.shape == torch.Size([2, batch_size * 500])
+    assert first_batch.x.shape == torch.Size([batch_size * 72, 10])
+    assert first_batch.edge_index.shape == torch.Size([2, batch_size * 652])
     assert first_batch.num_graphs == batch_size
 
     print("\n[SUCCESS] DCTGraphDataset and DataLoader successfully validated!")

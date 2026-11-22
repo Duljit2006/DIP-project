@@ -27,12 +27,13 @@ import glob
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.fft import dctn
 import torch
 
 from src.device_utils import get_optimal_device
 from src.dct_utils import load_and_slice, apply_dct_and_truncate, reconstruct_from_dct
 from src.metrics import calculate_psnr, calculate_ssim
-from src.dataset import create_zigzag_mask, get_dct_dataloader
+from src.dataset import create_zigzag_mask, get_dct_dataloader, get_zigzag_indices
 from src.models import FrequencyGNN, SpatialRefinerCNN
 
 
@@ -40,8 +41,8 @@ def evaluate_image(model, cnn_model=None, image_path="", cutoff=15, device="cpu"
     """
     Evaluates a single image through 4 distinct reconstruction pipelines:
       1. Baseline JPEG (Cutoff=15 zero-filled IDCT)
-      2. Frequency GNN (Intra-block harmonic prediction)
-      3. Hybrid (GNN -> CNN) (Stage 1 GNN intra-block + Stage 2 Spatial Refiner CNN)
+      2. Multi-Block Spatial-Frequency GNN (1+2+5 Approach)
+      3. Hybrid (GNN -> CNN) (Stage 1 GNN + Stage 2 Spatial Refiner CNN)
       4. Hybrid (CNN -> GNN) (Stage 1 Spatial Refiner CNN + 2D-DCT Hard Spectral Consistency)
     Supports full 3-channel RGB color images (via standard YCbCr luminance processing).
 
@@ -73,15 +74,38 @@ def evaluate_image(model, cnn_model=None, image_path="", cutoff=15, device="cpu"
     Cr_channel = raw_ycrcb[:, :, 1]
     Cb_channel = raw_ycrcb[:, :, 2]
 
-    # Slice Luminance (Y) channel into 8x8 blocks
-    blocks_Y = []
-    for r in range(0, h_crop, 8):
-        for c in range(0, w_crop, 8):
-            blocks_Y.append(Y_channel[r:r+8, c:c+8])
-    blocks_Y = np.array(blocks_Y, dtype=np.float32)
+    nr, nc = h_crop // 8, w_crop // 8
 
-    # 1. 2D-DCT & Truncate on Y channel
-    X_trunc, Y_full = apply_dct_and_truncate(blocks_Y, cutoff=cutoff)
+    # 1. Vectorized 2D-DCT & Multi-Block Spatial Context Extraction
+    blocks_grid = Y_channel.reshape(nr, 8, nc, 8).transpose(0, 2, 1, 3)
+    dct_grid = dctn(blocks_grid, axes=(-2, -1), norm='ortho')  # (nr, nc, 8, 8)
+    Y_full = dct_grid.reshape(-1, 64)
+
+    # Truncate high frequencies in zigzag order
+    zigzag = get_zigzag_indices()
+    x_trunc_grid = np.zeros_like(dct_grid)
+    for idx in range(min(cutoff, 64)):
+        zr, zc = zigzag[idx]
+        x_trunc_grid[:, :, zr, zc] = dct_grid[:, :, zr, zc]
+    X_trunc = x_trunc_grid.reshape(-1, 64)
+
+    # 8-Neighbor Spatial Context (N, S, W, E, NW, NE, SW, SE)
+    dc = x_trunc_grid[:, :, 0, 0]  # (nr, nc)
+    padded = np.pad(dc, 1, mode='edge')
+    N  = padded[0:nr, 1:nc+1]
+    S  = padded[2:nr+2, 1:nc+1]
+    W  = padded[1:nr+1, 0:nc]
+    E  = padded[1:nr+1, 2:nc+2]
+    NW = padded[0:nr, 0:nc]
+    NE = padded[0:nr, 2:nc+2]
+    SW = padded[2:nr+2, 0:nc]
+    SE = padded[2:nr+2, 2:nc+2]
+
+    diff_nb = np.stack([
+        N - dc, S - dc, W - dc, E - dc,
+        NW - dc, NE - dc, SW - dc, SE - dc
+    ], axis=-1)  # (nr, nc, 8)
+    neighbor_contexts = diff_nb.reshape(-1, 8)
 
     # 2. Pipeline 1: Baseline Reconstruction (IDCT with zero-filled missing high frequencies)
     baseline_Y = reconstruct_from_dct(X_trunc, (h_crop, w_crop))
@@ -90,8 +114,12 @@ def evaluate_image(model, cnn_model=None, image_path="", cutoff=15, device="cpu"
     base_psnr = calculate_psnr(Y_channel, baseline_Y)
     base_ssim = calculate_ssim(Y_channel, baseline_Y)
 
-    # 3. Pipeline 2: Frequency GNN Model Inference
-    dataloader = get_dct_dataloader(X_trunc, Y_full, cutoff=cutoff, batch_size=128, shuffle=False)
+    # 3. Pipeline 2: Multi-Block Spatial-Frequency GNN Model Inference
+    dataloader = get_dct_dataloader(
+        X_trunc, Y_full, cutoff=cutoff,
+        neighbor_contexts=neighbor_contexts,
+        batch_size=128, shuffle=False
+    )
     all_preds = []
 
     with torch.no_grad():
@@ -103,6 +131,7 @@ def evaluate_image(model, cnn_model=None, image_path="", cutoff=15, device="cpu"
     all_preds = np.concatenate(all_preds, axis=0)  # Shape: (num_blocks, 64)
     missing_mask = create_zigzag_mask(cutoff=cutoff).numpy()
     X_gnn_restored = X_trunc.copy()
+    X_gnn_restored[:, missing_mask] = all_preds[:, missing_mask]
     X_gnn_restored[:, missing_mask] = all_preds[:, missing_mask]
 
     gnn_Y = reconstruct_from_dct(X_gnn_restored, (h_crop, w_crop))
@@ -418,10 +447,14 @@ def main():
         print("Please run 'python train.py' first to generate model weights.")
         return
 
-    # Load GNN model onto optimal device
-    model = FrequencyGNN(in_channels=4, hidden_channels=128, num_layers=3, dropout=0.0).to(device)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
-    print(f"Loaded Stage 1 FrequencyGNN weights from: {checkpoint_path} onto {device}")
+    # Load GNN model onto optimal device (auto-detects in_channels from checkpoint)
+    state = torch.load(checkpoint_path, map_location=device)
+    in_channels = 10
+    if "convs.0.lin.weight" in state:
+        in_channels = state["convs.0.lin.weight"].shape[1]
+    model = FrequencyGNN(in_channels=in_channels, hidden_channels=128, num_layers=3, dropout=0.0).to(device)
+    model.load_state_dict(state)
+    print(f"Loaded Stage 1 FrequencyGNN weights (in_channels={in_channels}) from: {checkpoint_path} onto {device}")
 
     # Check for Stage 2 Spatial Refiner CNN
     cnn_model = None

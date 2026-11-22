@@ -110,6 +110,93 @@ def build_frequency_graph() -> torch.Tensor:
     return edge_index
 
 
+def build_multiblock_spatial_frequency_graph() -> torch.Tensor:
+    """
+    Constructs the 72-node Multi-Block Spatial-Frequency Graph:
+      - Nodes 0..63: 64 intra-block DCT frequency coefficient nodes
+      - Nodes 64..71: 8 inter-block spatial boundary neighbor nodes:
+          64: North (Top)
+          65: South (Bottom)
+          66: West (Left)
+          67: East (Right)
+          68: North-West
+          69: North-East
+          70: South-West
+          71: South-East
+
+    Edges:
+      1. Intra-block: All 500 local harmonic and spatial frequency edges.
+      2. Inter-block Cross-domain:
+         - N (64) & S (65) connect to vertical variation frequency nodes (u, 0) and (u, 1) for u=1..7.
+         - W (66) & E (67) connect to horizontal variation frequency nodes (0, v) and (1, v) for v=1..7.
+         - Diagonals (68..71) connect to diagonal frequency nodes (d, d) for d=1..5.
+
+    Returns:
+        edge_index: LongTensor of shape (2, 652), bidirectional.
+    """
+    base_edges = build_frequency_graph()
+    edges = set()
+    for i in range(base_edges.shape[1]):
+        edges.add((base_edges[0, i].item(), base_edges[1, i].item()))
+
+    # Connect N (64) and S (65) to vertical frequency nodes (u, 0) and (u, 1)
+    for u in range(1, 8):
+        for v in [0, 1]:
+            dst = coord_to_idx(u, v)
+            edges.add((64, dst))
+            edges.add((dst, 64))
+            edges.add((65, dst))
+            edges.add((dst, 65))
+
+    # Connect W (66) and E (67) to horizontal frequency nodes (0, v) and (1, v)
+    for v in range(1, 8):
+        for u in [0, 1]:
+            dst = coord_to_idx(u, v)
+            edges.add((66, dst))
+            edges.add((dst, 66))
+            edges.add((67, dst))
+            edges.add((dst, 67))
+
+    # Connect Diagonals to diagonal frequency nodes (d, d)
+    for d in range(1, 6):
+        dst = coord_to_idx(d, d)
+        for nid in [68, 69, 70, 71]:
+            edges.add((nid, dst))
+            edges.add((dst, nid))
+
+    edge_list = sorted(list(edges))
+    edge_index = torch.tensor(edge_list, dtype=torch.long).t().contiguous()
+    return edge_index
+
+
+def get_multiblock_coordinates(normalize: bool = True) -> torch.Tensor:
+    """
+    Returns 2D normalized (u, v) coordinates for all 72 nodes.
+    - Nodes 0..63: [u / 7.0, v / 7.0]
+    - Nodes 64..71: Normalized directional offsets of the 8 neighbors:
+        N  (-1,  0) -> [-0.5,  0.0]
+        S  ( 1,  0) -> [ 0.5,  0.0]
+        W  ( 0, -1) -> [ 0.0, -0.5]
+        E  ( 0,  1) -> [ 0.0,  0.5]
+        NW (-1, -1) -> [-0.5, -0.5]
+        NE (-1,  1) -> [-0.5,  0.5]
+        SW ( 1, -1) -> [ 0.5, -0.5]
+        SE ( 1,  1) -> [ 0.5,  0.5]
+    """
+    freq_coords = get_frequency_coordinates(normalize=normalize)  # (64, 2)
+    neighbor_offsets = torch.tensor([
+        [-0.5,  0.0],  # 64: N
+        [ 0.5,  0.0],  # 65: S
+        [ 0.0, -0.5],  # 66: W
+        [ 0.0,  0.5],  # 67: E
+        [-0.5, -0.5],  # 68: NW
+        [-0.5,  0.5],  # 69: NE
+        [ 0.5, -0.5],  # 70: SW
+        [ 0.5,  0.5],  # 71: SE
+    ], dtype=torch.float32)
+    return torch.cat([freq_coords, neighbor_offsets], dim=0)  # (72, 2)
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("Testing src/graph_builder.py")

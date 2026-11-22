@@ -38,62 +38,80 @@ import torch.nn as nn
 from src.device_utils import get_optimal_device
 from src.dataset import get_zigzag_indices, get_dct_dataloader, create_zigzag_mask
 from src.dct_utils import load_and_slice, apply_dct_and_truncate, reconstruct_from_dct
-from src.models import FrequencyGNN, SpatialRefinerCNN, DualDomainHybridModel
+from src.models import FrequencyGNN, SpatialRefinerCNN, DualDomainHybridModel, FrequencyWeightedL1Loss
 
 
 # =============================================================================
-# Image Slicing and 2D-DCT Processing
+# Image Slicing and Vectorized 2D-DCT Processing with Spatial-Neighbor Context
 # =============================================================================
 
 def process_single_image(image_path: str, cutoff: int = 15):
     """
-    Reads an image, crops it to multiples of 8, slices into 8x8 blocks,
-    applies 2D-DCT, and creates:
-        - X_blocks: Truncated DCT blocks (high frequencies set to 0.0)
-        - Y_blocks: Full ground truth DCT blocks
+    Reads an image, crops it to multiples of 8, and computes:
+        - X_blocks: Truncated DCT blocks (N, 64) with high frequencies zeroed out
+        - Y_blocks: Full ground truth DCT blocks (N, 64)
+        - neighbor_contexts: Relative DC differences of 8 surrounding blocks (N, 8)
+                             [N, S, W, E, NW, NE, SW, SE]
 
     Returns:
-        X_blocks, Y_blocks as numpy arrays of shape (num_blocks, 64)
+        X_blocks, Y_blocks, neighbor_contexts as numpy arrays
     """
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if img is None:
-        return None, None
+        return None, None, None
 
     h, w = img.shape
     h_crop, w_crop = (h // 8) * 8, (w // 8) * 8
     if h_crop == 0 or w_crop == 0:
-        return None, None
+        return None, None, None
 
     img = img[:h_crop, :w_crop].astype(np.float32) / 255.0
+    nr, nc = h_crop // 8, w_crop // 8
 
+    # Vectorized 8x8 block extraction: shape (nr, nc, 8, 8)
+    blocks = img.reshape(nr, 8, nc, 8).transpose(0, 2, 1, 3)
+    dct_grid = dctn(blocks, axes=(-2, -1), norm='ortho')  # (nr, nc, 8, 8)
+    y_full = dct_grid.reshape(-1, 64)
+
+    # Truncated DCT blocks (zero out missing high frequencies in zigzag order)
     zigzag = get_zigzag_indices()
-    X_list, Y_list = [], []
+    x_trunc_grid = np.zeros_like(dct_grid)
+    for idx in range(min(cutoff, 64)):
+        zr, zc = zigzag[idx]
+        x_trunc_grid[:, :, zr, zc] = dct_grid[:, :, zr, zc]
+    x_trunc = x_trunc_grid.reshape(-1, 64)
 
-    for r in range(0, h_crop, 8):
-        for c in range(0, w_crop, 8):
-            block = img[r:r+8, c:c+8]
-            dct_block = dctn(block, norm='ortho')
-            y_full = dct_block.flatten()
+    # Multi-Block Spatial Context: 8-neighbor DC differences
+    dc = x_trunc_grid[:, :, 0, 0]  # (nr, nc)
+    padded = np.pad(dc, 1, mode='edge')
+    N  = padded[0:nr, 1:nc+1]
+    S  = padded[2:nr+2, 1:nc+1]
+    W  = padded[1:nr+1, 0:nc]
+    E  = padded[1:nr+1, 2:nc+2]
+    NW = padded[0:nr, 0:nc]
+    NE = padded[0:nr, 2:nc+2]
+    SW = padded[2:nr+2, 0:nc]
+    SE = padded[2:nr+2, 2:nc+2]
 
-            # Create truncated block X (keep first cutoff in zigzag, rest zeroed)
-            x_trunc_2d = np.zeros_like(dct_block)
-            for idx in range(min(cutoff, 64)):
-                zr, zc = zigzag[idx]
-                x_trunc_2d[zr, zc] = dct_block[zr, zc]
+    diff_nb = np.stack([
+        N - dc, S - dc, W - dc, E - dc,
+        NW - dc, NE - dc, SW - dc, SE - dc
+    ], axis=-1)  # (nr, nc, 8)
+    neighbor_contexts = diff_nb.reshape(-1, 8)
 
-            X_list.append(x_trunc_2d.flatten())
-            Y_list.append(y_full)
-
-    return np.array(X_list, dtype=np.float32), np.array(Y_list, dtype=np.float32)
+    return x_trunc, y_full, neighbor_contexts
 
 
 def load_dataset_blocks(folder_path: str, cutoff: int = 15, max_images: int = None):
     """
-    Scans a folder for images (.jpg, .png, .bmp), extracts all 8x8 DCT blocks,
-    and returns:
+    Scans a folder for images (.jpg, .png, .bmp), extracts all 8x8 DCT blocks
+    along with multi-block spatial neighbor context.
+
+    Returns:
         valid_paths: list of paths to loaded images
         all_X: array of truncated blocks (num_blocks, 64)
         all_Y: array of ground truth blocks (num_blocks, 64)
+        all_contexts: array of neighbor DC differences (num_blocks, 8)
     """
     patterns = ["*.jpg", "*.jpeg", "*.png", "*.bmp"]
     image_paths = []
@@ -110,22 +128,24 @@ def load_dataset_blocks(folder_path: str, cutoff: int = 15, max_images: int = No
 
     print(f"Loading {len(image_paths)} image(s) from {folder_path}...")
     valid_paths = []
-    all_X, all_Y = [], []
+    all_X, all_Y, all_contexts = [], [], []
 
     for idx, path in enumerate(image_paths):
-        X, Y = process_single_image(path, cutoff=cutoff)
+        X, Y, contexts = process_single_image(path, cutoff=cutoff)
         if X is not None and len(X) > 0:
             valid_paths.append(path)
             all_X.append(X)
             all_Y.append(Y)
+            all_contexts.append(contexts)
 
         if (idx + 1) % 50 == 0 or (idx + 1) == len(image_paths):
             print(f"  Processed [{idx + 1}/{len(image_paths)}] images...")
 
     all_X = np.concatenate(all_X, axis=0)
     all_Y = np.concatenate(all_Y, axis=0)
+    all_contexts = np.concatenate(all_contexts, axis=0)
     print(f"Total 8x8 DCT blocks prepared: {len(all_X):,} blocks from {len(valid_paths)} images.")
-    return valid_paths, all_X, all_Y
+    return valid_paths, all_X, all_Y, all_contexts
 
 
 # =============================================================================
@@ -154,11 +174,10 @@ def train_spatial_refiner(gnn_model, image_paths, cutoff=15, epochs=15, lr=5e-4,
 
     with torch.no_grad():
         for path in image_paths:
-            blocks, shape = load_and_slice(path)
-            if blocks is None or len(blocks) == 0:
+            X_trunc, Y_full, nb_contexts = process_single_image(path, cutoff=cutoff)
+            if X_trunc is None or len(X_trunc) == 0:
                 continue
-            X_trunc, Y_full = apply_dct_and_truncate(blocks, cutoff=cutoff)
-            dl = get_dct_dataloader(X_trunc, Y_full, cutoff=cutoff, batch_size=128, shuffle=False)
+            dl = get_dct_dataloader(X_trunc, Y_full, cutoff=cutoff, neighbor_contexts=nb_contexts, batch_size=128, shuffle=False)
             preds = []
             for b in dl:
                 b = b.to(device)
@@ -167,10 +186,11 @@ def train_spatial_refiner(gnn_model, image_paths, cutoff=15, epochs=15, lr=5e-4,
             preds = np.concatenate(preds, axis=0)
             X_restored = X_trunc.copy()
             X_restored[:, missing_mask] = preds[:, missing_mask]
-            gnn_img = reconstruct_from_dct(X_restored, shape)
 
             clean_raw = cv2.imread(path, cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.0
-            clean_img = clean_raw[:shape[0], :shape[1]]
+            h_c, w_c = (clean_raw.shape[0] // 8) * 8, (clean_raw.shape[1] // 8) * 8
+            clean_img = clean_raw[:h_c, :w_c]
+            gnn_img = reconstruct_from_dct(X_restored, (h_c, w_c))
 
             gnn_tensor = torch.from_numpy(gnn_img).float().unsqueeze(0).unsqueeze(0).to(device)
             clean_tensor = torch.from_numpy(clean_img).float().unsqueeze(0).unsqueeze(0).to(device)
@@ -221,8 +241,8 @@ def train(args):
     # Intelligent device selection (Dedicated GPU -> Integrated GPU -> CPU)
     device, device_info = get_optimal_device(preference=args.device, verbose=True)
 
-    # 1. Load Data
-    valid_paths, X_train, Y_train = load_dataset_blocks(
+    # 1. Load Data with Multi-Block Spatial Neighbor Context
+    valid_paths, X_train, Y_train, contexts_train = load_dataset_blocks(
         folder_path=args.train_folder,
         cutoff=args.cutoff,
         max_images=args.max_images
@@ -232,30 +252,33 @@ def train(args):
         X_blocks=X_train,
         Y_blocks=Y_train,
         cutoff=args.cutoff,
+        neighbor_contexts=contexts_train,
         batch_size=args.batch_size,
         shuffle=True
     )
 
     # 2. Instantiate Model, Loss, Optimizer, Scheduler (STAGE 1: Frequency GNN)
     model = FrequencyGNN(
-        in_channels=4,
+        in_channels=10,
         hidden_channels=args.hidden,
         num_layers=args.layers,
         dropout=args.dropout
     ).to(device)
 
-    # L1 Loss ensures strong, constant gradients to predict non-zero high-frequency textures
-    criterion = nn.L1Loss()
+    # Frequency-Weighted L1 Loss focuses gradients on primary harmonic overtones
+    criterion = FrequencyWeightedL1Loss(cutoff=args.cutoff).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.step_size, gamma=0.5)
 
     print("\n" + "=" * 60)
-    print("STAGE 1: Training Frequency GNN (Intra-Block Harmonics)")
+    print("STAGE 1: Training Multi-Block Spatial-Frequency GNN (1+2+5)")
     print(f"  Total Epochs:      {args.epochs}")
     print(f"  Batch Size:        {args.batch_size} blocks")
     print(f"  Learning Rate:     {args.lr}")
     print(f"  Cutoff Frequencies:{args.cutoff} (Predicting {64 - args.cutoff} missing ACs)")
-    print(f"  Loss Function:     L1 Loss (Mean Absolute Error)")
+    print(f"  Node Channels:     10 (Energy, Ratio, Spatial DC Gradients)")
+    print(f"  Graph Topology:    72-Node Spatial-Frequency Multi-Block (652 edges)")
+    print(f"  Loss Function:     Frequency-Weighted L1 Loss")
     print(f"  Total Parameters:  {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
     print("=" * 60 + "\n")
 
@@ -273,11 +296,11 @@ def train(args):
             batch = batch.to(device)
             optimizer.zero_grad()
 
-            # Forward pass: predict DCT amplitudes for all nodes in the batch
+            # Forward pass: predict DCT amplitudes (B * 64,)
             preds = model(batch.x, batch.edge_index)
 
-            # Grade strictly on missing high-frequency nodes (missing_mask == True) with L1 loss
-            loss = criterion(preds[batch.missing_mask], batch.y[batch.missing_mask])
+            # Grade strictly on missing high-frequency nodes with Frequency-Weighted L1 loss
+            loss = criterion(preds, batch.y, batch.missing_mask)
 
             # Backpropagation
             loss.backward()
