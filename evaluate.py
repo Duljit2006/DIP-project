@@ -21,10 +21,7 @@ sys.dont_write_bytecode = True
 # Ensure project root is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-# Immediately delete previous results and bytecode caches before execution
 from src.cleanup import clean_all
-clean_all(clear_results=True)
-
 import argparse
 import glob
 import cv2
@@ -314,6 +311,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate FrequencyGNN & Dual-Domain Hybrid Model.")
     parser.add_argument("--dataset", type=str, default="Set14", choices=["Set14", "Set5", "all"],
                         help="Benchmark dataset to evaluate on ('Set14', 'Set5', or 'all'). Default: Set14.")
+    parser.add_argument("--image", type=str, default=None,
+                        help="Path to an individual image file to evaluate directly.")
     parser.add_argument("--device", type=str, default="auto",
                         help="Hardware accelerator ('auto', 'cuda', 'mps', 'xpu', 'directml', 'cpu'). Default: auto.")
     parser.add_argument("--cutoff", type=int, default=15,
@@ -403,6 +402,12 @@ def evaluate_dataset(model, cnn_model, dataset_name, cutoff=15, device="cpu", sa
 def main():
     args = parse_args()
 
+    # If running full dataset evaluation, clean previous results
+    if args.image is None:
+        clean_all(clear_results=True)
+    else:
+        clean_all(clear_results=False)
+
     # Intelligent device selection (Dedicated GPU -> Integrated GPU -> CPU)
     device, device_info = get_optimal_device(preference=args.device, verbose=True)
 
@@ -438,8 +443,34 @@ def main():
 
     print()
     os.makedirs(args.save_dir, exist_ok=True)
-    all_reports = []
 
+    # Single Image Mode
+    if args.image:
+        if not os.path.exists(args.image):
+            print(f"[ERROR] Specified image does not exist: {args.image}")
+            return
+        fname = os.path.basename(args.image)
+        base_name = os.path.splitext(fname)[0]
+        print(f"Evaluating single image: {args.image} (Cutoff={args.cutoff})...")
+        res = evaluate_image(model, cnn_model=cnn_model, image_path=args.image, cutoff=args.cutoff, device=device)
+        comp_path = save_visual_comparison(res, f"single_{base_name}", save_dir=args.save_dir)
+        heat_path = save_error_heatmap(res, f"single_{base_name}", save_dir=args.save_dir)
+
+        print("\n" + "=" * 80)
+        print(f"  SINGLE IMAGE EVALUATION RESULTS: {fname}")
+        print("=" * 80)
+        print(f"  Baseline JPEG (Cutoff={args.cutoff}):  {res['baseline_psnr']:.2f} dB (SSIM: {res['baseline_ssim']:.4f})")
+        print(f"  Stage 1: Frequency GNN:         {res['gnn_psnr']:.2f} dB ({res['gnn_gain']:+.2f} dB)")
+        if cnn_model is not None:
+            print(f"  Hybrid 1: GNN -> CNN:           {res['gnn_cnn_psnr']:.2f} dB ({res['gnn_cnn_gain']:+.2f} dB)")
+            print(f"  Hybrid 2: CNN -> GNN (Spectral): {res['cnn_gnn_psnr']:.2f} dB ({res['cnn_gnn_gain']:+.2f} dB | SSIM: {res['cnn_gnn_ssim']:.4f})")
+        print("=" * 80)
+        print(f"[SUCCESS] 5-panel comparison saved to: {comp_path}")
+        print(f"[SUCCESS] 4-panel heatmap saved to:    {heat_path}\n")
+        return
+
+    # Dataset Mode
+    all_reports = []
     if args.dataset in ("Set14", "all"):
         rep14 = evaluate_dataset(model, cnn_model, "Set14", cutoff=args.cutoff, device=device, save_dir=args.save_dir)
         if rep14:
