@@ -3,9 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Checkpoints & model weights
-checkpoints/*.pth
-checkpoints/*.pt
+# Checkpoints & model weights (track weights so Colab / deployments work out of the box)
+# checkpoints/*.pth
+# checkpoints/*.pt
 
 # Evaluation output images (keep directory, ignore outputs)
 results/*

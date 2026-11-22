@@ -6,9 +6,5 @@ Pillow
 matplotlib
 scikit-image
 
-# Deep Learning (PyTorch)
-torch
-torchvision
-
 # Graph Neural Networks (PyTorch Geometric)
 torch_geometric
