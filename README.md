@@ -1,3 +1,13 @@
+---
+title: NeuroDCT Artifact Reduction Lab
+emoji: 🔬
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # 🎨 Digital Image Processing Project: DCT & GNN Image Reconstruction
 
 Welcome to our Digital Image Processing (DIP) project repository!  

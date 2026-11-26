@@ -155,24 +155,103 @@ def fig_to_png_b64(fig) -> str:
 
 
 def render_indigo_heatmap_overlay(err_map: np.ndarray, vmax: float) -> str:
-    """Renders a clean monochromatic/indigo clinical residual heatmap as PNG base64."""
+    """Renders a high-contrast 'hot' residual error heatmap (Black=Zero Error, Red/Yellow=High)."""
     fig, ax = plt.subplots(figsize=(5.5, 4.2), dpi=150)
-    fig.patch.set_facecolor("#F9F9FF")
-    ax.imshow(err_map, cmap="PuBuGn_r" if False else "YlGnBu_r", vmin=0, vmax=max(vmax, 0.08))
-    # Wait: Indigo/magma/inferno or custom linear white-to-indigo matches NeuroDCT palette cleanly!
-    plt.close(fig)
-
-    from matplotlib.colors import LinearSegmentedColormap
-    cmap_indigo = LinearSegmentedColormap.from_list(
-        "neuro_indigo",
-        ["#FFFFFF", "#E0E7FF", "#818CF8", "#4F46E5", "#1E1B4B"],
-        N=256,
-    )
-    fig, ax = plt.subplots(figsize=(5.5, 4.2), dpi=150)
-    fig.patch.set_facecolor("#FFFFFF")
-    ax.imshow(err_map, cmap=cmap_indigo, vmin=0, vmax=max(vmax, 0.08), aspect="auto")
+    fig.patch.set_facecolor("#000000")
+    safe_vmax = max(float(np.percentile(err_map, 99.5)) * 1.4, min(float(vmax), 0.14), 0.06)
+    ax.imshow(err_map, cmap="hot", vmin=0, vmax=safe_vmax, aspect="auto")
     ax.axis("off")
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    return fig_to_png_b64(fig)
+
+
+def render_results_comparison_strip(
+    raw_rgb: np.ndarray,
+    outputs_map: Dict[str, Any],
+    cutoff: int,
+    is_blind: bool = False,
+) -> str:
+    """
+    Renders the signature 5-panel /results-style side-by-side comparison figure:
+    [Original] vs [Baseline] vs [Frequency GNN] vs [GNN -> CNN] vs [CNN -> GNN].
+    """
+    plt.rcParams["font.sans-serif"] = ["DejaVu Sans", "Arial"]
+    base_row = outputs_map["baseline"]["row"]
+    gnn_row = outputs_map["gnn_only"]["row"]
+    gc_row = outputs_map["gnn_cnn"]["row"]
+    cg_row = outputs_map["cnn_gnn"]["row"]
+
+    fig, axes = plt.subplots(1, 5, figsize=(21.0, 4.4), dpi=130)
+    fig.patch.set_facecolor("#FFFFFF")
+
+    if is_blind:
+        panels = [
+            (raw_rgb, "Uploaded Input JPEG\n(Compressed Reference)", "#141B2B"),
+            (outputs_map["gnn_only"]["rgb"], f"Frequency GNN Alone\nAtten: -{gnn_row['attenuation_pct']}%", "#585F6C"),
+            (outputs_map["cnn_only"]["rgb"], f"Spatial CNN Alone\nAtten: -{outputs_map['cnn_only']['row']['attenuation_pct']}%", "#1E40AF"),
+            (outputs_map["gnn_cnn"]["rgb"], f"Hybrid (GNN -> CNN)\nAtten: -{gc_row['attenuation_pct']}%", "#1E3A8A"),
+            (outputs_map["cnn_gnn"]["rgb"], f"Hybrid (CNN -> GNN)\nAtten: -{cg_row['attenuation_pct']}% (Proposed)", "#166534"),
+        ]
+    else:
+        g_sign = "+" if gnn_row["psnr_gain"] >= 0 else ""
+        gc_sign = "+" if gc_row["psnr_gain"] >= 0 else ""
+        cg_sign = "+" if cg_row["psnr_gain"] >= 0 else ""
+        panels = [
+            (raw_rgb, "Original (Ground Truth)\nReference Image", "#141B2B"),
+            (outputs_map["baseline"]["rgb"], f"Baseline JPEG (Cutoff={cutoff})\nPSNR: {base_row['psnr']:.2f} dB | SSIM: {base_row['ssim']:.4f}", "#585F6C"),
+            (outputs_map["gnn_only"]["rgb"], f"Stage 1: Frequency GNN\nPSNR: {gnn_row['psnr']:.2f} dB ({g_sign}{gnn_row['psnr_gain']:.2f})\nSSIM: {gnn_row['ssim']:.4f}", "#1E293B"),
+            (outputs_map["gnn_cnn"]["rgb"], f"Hybrid (GNN -> CNN)\nPSNR: {gc_row['psnr']:.2f} dB ({gc_sign}{gc_row['psnr_gain']:.2f})\nSSIM: {gc_row['ssim']:.4f}", "#1D4ED8"),
+            (outputs_map["cnn_gnn"]["rgb"], f"Hybrid (CNN -> GNN) [BEST]\nPSNR: {cg_row['psnr']:.2f} dB ({cg_sign}{cg_row['psnr_gain']:.2f})\nSSIM: {cg_row['ssim']:.4f}", "#166534"),
+        ]
+
+    for idx, (img_arr, title, col) in enumerate(panels):
+        axes[idx].imshow(np.clip(img_arr, 0.0, 1.0))
+        axes[idx].set_title(title, fontsize=10, fontweight="bold", color=col, pad=8)
+        axes[idx].axis("off")
+
+    fig.suptitle("5-Way Reconstruction Comparison (Side-by-Side Results)", fontsize=12.5, fontweight="bold", color="#0F2942")
+    fig.subplots_adjust(top=0.82, bottom=0.03, left=0.01, right=0.99, wspace=0.05)
+    return fig_to_png_b64(fig)
+
+
+def render_results_heatmap_strip(
+    outputs_map: Dict[str, Any],
+    err_base: np.ndarray,
+    is_blind: bool = False,
+) -> str:
+    """
+    Renders the signature 4-panel /results-style 'hot' Error Heatmap comparison:
+    [Baseline Error] vs [GNN Error] vs [GNN -> CNN Error] vs [CNN -> GNN Error].
+    """
+    plt.rcParams["font.sans-serif"] = ["DejaVu Sans", "Arial"]
+    err_gnn = outputs_map["gnn_only"]["err"]
+    err_gc = outputs_map["gnn_cnn"]["err"]
+    err_cg = outputs_map["cnn_gnn"]["err"]
+
+    vmax = max(float(np.percentile(err_base, 99.5)) * 1.4, float(err_base.max()) * 0.85, 0.12)
+    fig, axes = plt.subplots(1, 4, figsize=(20.0, 4.4), dpi=130)
+    fig.patch.set_facecolor("#FFFFFF")
+
+    prefix = "Correction Map" if is_blind else "Error Map"
+    panels = [
+        (err_base, f"Baseline {prefix}\nMean Abs Err: {err_base.mean():.4f}", "#141B2B"),
+        (err_gnn,  f"Frequency GNN {prefix}\nMean Abs Err: {err_gnn.mean():.4f}", "#585F6C"),
+        (err_gc,   f"Hybrid (GNN -> CNN) {prefix}\nMean Abs Err: {err_gc.mean():.4f}", "#1D4ED8"),
+        (err_cg,   f"Hybrid (CNN -> GNN) {prefix}\nMean Abs Err: {err_cg.mean():.4f} (Lowest Error)", "#166534"),
+    ]
+
+    last_im = None
+    for idx, (emap, title, col) in enumerate(panels):
+        last_im = axes[idx].imshow(emap, cmap="hot", vmin=0, vmax=vmax)
+        axes[idx].set_title(title, fontsize=10, fontweight="bold", color=col, pad=8)
+        axes[idx].axis("off")
+
+    fig.subplots_adjust(top=0.82, bottom=0.05, left=0.015, right=0.93, wspace=0.05)
+    cax = fig.add_axes([0.945, 0.10, 0.014, 0.72])
+    cbar = fig.colorbar(last_im, cax=cax)
+    cbar.ax.tick_params(labelsize=8, colors="#464555")
+
+    fig.suptitle("4-Way Error Heatmap Comparison (Darker = Lower Error)", fontsize=12.5, fontweight="bold", color="#0F2942")
     return fig_to_png_b64(fig)
 
 
@@ -182,14 +261,8 @@ def render_heatmap_comparison_figure(
     selected_label: str,
     is_blind: bool = False,
 ) -> str:
-    """Renders high-res side-by-side residual error heatmap comparison for Tab 2."""
-    from matplotlib.colors import LinearSegmentedColormap
-    cmap_indigo = LinearSegmentedColormap.from_list(
-        "neuro_indigo",
-        ["#FFFFFF", "#E0E7FF", "#818CF8", "#4F46E5", "#1E1B4B"],
-        N=256,
-    )
-    vmax = max(float(err_base.max()), float(err_selected.max()), 0.12)
+    """Renders high-res side-by-side 'hot' residual error heatmap comparison for Tab 2."""
+    vmax = max(float(np.percentile(err_base, 99.5)) * 1.4, float(err_base.max()) * 0.85, 0.12)
 
     plt.rcParams["font.sans-serif"] = ["DejaVu Sans", "Arial"]
     fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.8), dpi=150)
@@ -202,11 +275,11 @@ def render_heatmap_comparison_figure(
         title0 = f"Baseline JPEG Error |GT - Base|\nMean Abs Err: {err_base.mean():.4f}"
         title1 = f"{selected_label} Error |GT - Out|\nMean Abs Err: {err_selected.mean():.4f}"
 
-    im0 = axes[0].imshow(err_base, cmap=cmap_indigo, vmin=0, vmax=vmax)
+    axes[0].imshow(err_base, cmap="hot", vmin=0, vmax=vmax)
     axes[0].set_title(title0, fontsize=10, fontweight="bold", color="#141B2B", pad=8)
     axes[0].axis("off")
 
-    im1 = axes[1].imshow(err_selected, cmap=cmap_indigo, vmin=0, vmax=vmax)
+    im1 = axes[1].imshow(err_selected, cmap="hot", vmin=0, vmax=vmax)
     axes[1].set_title(title1, fontsize=10, fontweight="bold", color="#3525CD", pad=8)
     axes[1].axis("off")
 
@@ -706,6 +779,12 @@ class NeuroDCTEngine:
         heatmap_full_b64 = render_heatmap_comparison_figure(
             err_base, sel["err"], sel["row"]["label"], is_blind=is_blind
         )
+        comparison_strip_b64 = render_results_comparison_strip(
+            raw_rgb, outputs_map, cutoff=cutoff, is_blind=is_blind
+        )
+        heatmap_strip_b64 = render_results_heatmap_strip(
+            outputs_map, err_base=err_base, is_blind=is_blind
+        )
         loupe_b64 = render_loupe_figure(
             base_rgb, sel["rgb"], raw_rgb if not is_blind else None,
             roi_x, roi_y, sel["row"]["label"], patch_size=64, is_blind=is_blind
@@ -739,6 +818,8 @@ class NeuroDCTEngine:
             "visuals": {
                 "heatmap_card_b64": heatmap_card_b64,
                 "heatmap_full_b64": heatmap_full_b64,
+                "comparison_strip_b64": comparison_strip_b64,
+                "heatmap_strip_b64": heatmap_strip_b64,
                 "loupe_b64": loupe_b64,
                 "spectrum_b64": spectrum_b64,
             },

@@ -802,18 +802,18 @@
                   </div>
                 </div>
 
-                <!-- Color Legend Scale -->
+                <!-- Color Legend Scale ('hot' colormap matching /results) -->
                 <div class="flex flex-col gap-1 pt-1">
                   <div class="flex items-center justify-between font-mono text-[10px] text-secondary">
-                    <span>0.0 (Zero Error)</span>
-                    <span class="text-primary font-semibold">High Divergence</span>
+                    <span>0.0 (Darker = Zero Error)</span>
+                    <span class="text-[#b91c1c] font-semibold">Yellow = High Error</span>
                   </div>
                   <div class="w-full h-2.5 border border-outline-variant flex">
-                    <div class="flex-1 bg-white"></div>
-                    <div class="flex-1 bg-[#e0e7ff]"></div>
-                    <div class="flex-1 bg-[#818cf8]"></div>
-                    <div class="flex-1 bg-[#4f46e5]"></div>
-                    <div class="flex-1 bg-[#1e1b4b]"></div>
+                    <div class="flex-1 bg-black"></div>
+                    <div class="flex-1 bg-[#7f1d1d]"></div>
+                    <div class="flex-1 bg-[#dc2626]"></div>
+                    <div class="flex-1 bg-[#f97316]"></div>
+                    <div class="flex-1 bg-[#fde047]"></div>
                   </div>
                 </div>
               </div>
@@ -824,7 +824,7 @@
           <div id="eval-pane-heatmap" class="eval-tab-pane">
             <div class="bg-surface p-4 border border-outline-variant text-center">
               <p class="font-mono text-[11px] text-secondary mb-3 uppercase">
-                Side-by-Side Pixel Error Comparison — Lighter White = Zero Mathematical Error | Deep Indigo = High Artifact Energy
+                Side-by-Side Pixel Error Comparison — Darker Black = Zero Mathematical Error | Red/Yellow = High Artifact Energy
               </p>
               <img id="s3-heatmap-full-img" src="" alt="Full Error Heatmap Comparison" class="max-h-[520px] mx-auto border border-outline-variant bg-white" />
             </div>
@@ -863,6 +863,38 @@
             <div class="flex items-center gap-1 text-primary font-semibold">
               <span class="material-symbols-outlined text-[15px]">verified</span>
               <span>HARD SPECTRAL LOCK INTEGRITY VERIFIED</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- /results-Style Full Visual Comparison & 4-Way Error Heatmap Gallery -->
+        <div class="w-full bg-surface-container-lowest border border-outline-variant p-5 flex flex-col gap-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-surface-container">
+            <div>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-secondary block">Full Pipeline Visual Strips (/results Format)</span>
+              <h3 class="text-[20px] font-semibold text-on-surface">5-Way Reconstruction Comparison &amp; 4-Way Error Heatmaps</h3>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="downloadStrip('comparison')" class="flex items-center gap-1 px-2.5 py-1.5 bg-surface-container text-primary hover:bg-primary hover:text-white font-mono text-[10px] font-semibold uppercase border border-primary/30 transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-[14px]">download</span>
+                <span>Comparison PNG</span>
+              </button>
+              <button type="button" onclick="downloadStrip('heatmap')" class="flex items-center gap-1 px-2.5 py-1.5 bg-surface-container text-primary hover:bg-primary hover:text-white font-mono text-[10px] font-semibold uppercase border border-primary/30 transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-[14px]">download</span>
+                <span>Heatmap PNG</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-4">
+            <div class="bg-surface border border-outline-variant p-3">
+              <div class="font-mono text-[10px] font-bold uppercase text-secondary mb-2">1. 5-Way Side-by-Side Visual Comparison (Original vs Baseline vs GNN vs GNN➔CNN vs CNN➔GNN)</div>
+              <img id="s3-comparison-strip-img" src="" alt="5-Way Reconstruction Comparison Strip" class="w-full border border-outline-variant/60 bg-white" />
+            </div>
+
+            <div class="bg-surface border border-outline-variant p-3">
+              <div class="font-mono text-[10px] font-bold uppercase text-secondary mb-2">2. 4-Way Residual Error Heatmap Comparison (Darker = Lower Mathematical Error)</div>
+              <img id="s3-heatmap-strip-img" src="" alt="4-Way Error Heatmap Strip" class="w-full border border-outline-variant/60 bg-white" />
             </div>
           </div>
         </div>
@@ -1525,9 +1557,11 @@
       document.getElementById("s3-left-title").textContent = isBlind ? "Left: Uploaded Compressed JPEG" : `Left: Baseline JPEG (Cutoff=${data.cutoff})`;
       document.getElementById("s3-right-title").textContent = `Right: ${sel.label}`;
 
-      // Heatmaps, Loupe & Spectrum
+      // Heatmaps, Loupe, Spectrum & /results Strips
       document.getElementById("s3-heatmap-card-img").src = data.visuals.heatmap_card_b64;
       document.getElementById("s3-heatmap-full-img").src = data.visuals.heatmap_full_b64;
+      document.getElementById("s3-comparison-strip-img").src = data.visuals.comparison_strip_b64;
+      document.getElementById("s3-heatmap-strip-img").src = data.visuals.heatmap_strip_b64;
       document.getElementById("s3-loupe-img").src = data.visuals.loupe_b64;
       document.getElementById("s3-spectrum-img").src = data.visuals.spectrum_b64;
 
@@ -1694,6 +1728,19 @@
     function downloadPng() {
       if (!appState.lastResult) return;
       window.location.href = `/api/export/${appState.lastResult.run_id}/png?arch=${appState.activeRightMethod}`;
+    }
+
+    function downloadStrip(kind) {
+      if (!appState.lastResult) return;
+      const b64 = kind === "heatmap"
+        ? appState.lastResult.visuals.heatmap_strip_b64
+        : appState.lastResult.visuals.comparison_strip_b64;
+      const a = document.createElement("a");
+      a.href = b64;
+      a.download = `NeuroDCT_${kind}_${appState.lastResult.run_id}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
 
     // Load Benchmarks Showcase Tab
