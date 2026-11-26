@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Colab Training Guide — DIV2K + Flickr2K (DF2K)</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #111827;
+      --card-border: #1f2937;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.2);
+      --text-main: #f9fafb;
+      --text-sub: #9ca3af;
+      --code-bg: #030712;
+      --success: #10b981;
+      --warning: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 950px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 35px;
+      text-align: center;
+      padding: 30px;
+      background: linear-gradient(180deg, #1e1b4b 0%, var(--card-bg) 100%);
+      border: 1px solid #312e81;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px var(--accent-glow);
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      background: linear-gradient(90deg, #a5b4fc, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 1.05rem;
+      color: var(--text-sub);
+      max-width: 720px;
+      margin: 0 auto 18px;
+    }
+
+    .badge-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: #1f2937;
+      color: #e5e7eb;
+      border: 1px solid #374151;
+    }
+
+    .badge-primary {
+      background: #312e81;
+      color: #c7d2fe;
+      border-color: #4338ca;
+    }
+
+    .badge-success {
+      background: #064e3b;
+      color: #a7f3d0;
+      border-color: #059669;
+    }
+
+    .instructions-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-left: 4px solid var(--accent);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 30px;
+    }
+
+    .instructions-card h2 {
+      font-size: 1.25rem;
+      margin-bottom: 10px;
+      color: #e0e7ff;
+    }
+
+    .instructions-card ol {
+      margin-left: 22px;
+      color: var(--text-sub);
+    }
+
+    .instructions-card li {
+      margin-bottom: 6px;
+    }
+
+    .instructions-card strong {
+      color: var(--text-main);
+    }
+
+    .cell-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      margin-bottom: 28px;
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .cell-card:hover {
+      border-color: #374151;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .cell-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 20px;
+      background: #161f30;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .cell-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      color: #e2e8f0;
+    }
+
+    .cell-number {
+      background: var(--accent);
+      color: #fff;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 15px;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .copy-btn:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    .copy-btn.copied {
+      background: var(--success);
+    }
+
+    .cell-desc {
+      padding: 12px 20px;
+      color: var(--text-sub);
+      font-size: 0.9rem;
+      border-bottom: 1px solid #1a2233;
+      background: #0d1320;
+    }
+
+    pre {
+      background: var(--code-bg);
+      padding: 18px 20px;
+      overflow-x: auto;
+      font-family: "Fira Code", Consolas, Monaco, "Andale Mono", monospace;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      color: #e5e7eb;
+    }
+
+    .summary-footer {
+      text-align: center;
+      margin-top: 50px;
+      padding: 25px;
+      border-top: 1px solid var(--card-border);
+      color: var(--text-sub);
+      font-size: 0.9rem;
+    }
+
+    .summary-footer a {
+      color: #818cf8;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <header>
+      <h1>Google Colab Training Guide</h1>
+      <p class="subtitle">Complete cell-by-cell script to train the <strong>Dual-Domain Hybrid Model</strong> on <strong>DIV2K + Flickr2K (DF2K)</strong> with 25 GNN Epochs and 60 CNN Epochs.</p>
+      <div class="badge-bar">
+        <span class="badge badge-primary">⚡ GPU: T4 or A100</span>
+        <span class="badge badge-success">📦 Dataset: DF2K (3,450 2K/4K Images)</span>
+        <span class="badge">🧠 GNN: 25 Epochs</span>
+        <span class="badge">🖼️ Spatial CNN: 60 Epochs</span>
+        <span class="badge">💾 Output: checkpoints/hybrid_model.pth</span>
+      </div>
+    </header>
+
+    <div class="instructions-card">
+      <h2>🚀 Quick Setup Instructions for Colab</h2>
+      <ol>
+        <li>Open <a href="https://colab.research.google.com" target="_blank" style="color: #818cf8; font-weight: bold;">Google Colab</a> and click <strong>New Notebook</strong>.</li>
+        <li>Set the hardware accelerator: Navigate to <strong>Runtime → Change runtime type → Select T4 GPU</strong> and click <strong>Save</strong>.</li>
+        <li>Copy and paste each cell below into separate Colab cells in sequential order.</li>
+        <li>Run all cells (or press <strong>Shift + Enter</strong> for each cell).</li>
+      </ol>
+    </div>
+
+    <!-- CELL 1 -->
+    <div class="cell-card">
+      <div class="cell-header">
+        <div class="cell-title">
+          <span class="cell-number">CELL 1</span>
+          <span>Check GPU & Clone Repository</span>
+        </div>
+        <button class="copy-btn" onclick="copyCell('code-1', this)">📋 Copy Code</button>
+      </div>
+      <div class="cell-desc">Verifies CUDA availability, clones the DIP-project repository, and installs required PyTorch Geometric packages.</div>
+      <pre id="code-1"># Cell 1: Verify GPU & Clone Repository
+import torch
+print(f"CUDA Available: {torch.cuda.is_available()}")
+if torch.cuda.is_available():
+    print(f"Device Name: {torch.cuda.get_device_name(0)}")
+
+!git clone https://github.com/Duljit2006/DIP-project.git
+%cd DIP-project
+!pip install -q -r requirements.txt
+!pip install -q torch_geometric
+print("Environment setup complete!")</pre>
+    </div>
+
+    <!-- CELL 2 -->
+    <div class="cell-card">
+      <div class="cell-header">
+        <div class="cell-title">
+          <span class="cell-number">CELL 2</span>
+          <span>Download & Extract DIV2K + Flickr2K (DF2K)</span>
+        </div>
+        <button class="copy-btn" onclick="copyCell('code-2', this)">📋 Copy Code</button>
+      </div>
+      <div class="cell-desc">Downloads high-resolution 2K/4K benchmark datasets into <code>data/train_hr</code>.</div>
+      <pre id="code-2"># Cell 2: Download and unpack DIV2K and Flickr2K
+import os
+
+os.makedirs("data/train_hr", exist_ok=True)
+
+# 1. Download DIV2K (800 high-res training images ~3.5 GB)
+print("Downloading DIV2K Train HR...")
+!wget -c https://data.vision.ee.ethz.ch/cvl/DIV2K/DIV2K_train_HR.zip
+!unzip -q -j DIV2K_train_HR.zip -d data/train_hr/
+!rm DIV2K_train_HR.zip
+
+# 2. Download Flickr2K (2,650 high-res images)
+print("Downloading Flickr2K...")
+!wget -c https://cv.snu.ac.kr/research/EDSR/Flickr2K.tar
+!tar -xf Flickr2K.tar
+!find Flickr2K/ -type f -name "*.png" -exec mv -t data/train_hr/ {} +
+!rm -rf Flickr2K Flickr2K.tar
+
+total_imgs = len(os.listdir("data/train_hr"))
+print(f"Total pristine high-resolution training images ready: {total_imgs}")</pre>
+    </div>
+
+    <!-- CELL 3 -->
+    <div class="cell-card">
+      <div class="cell-header">
+        <div class="cell-title">
+          <span class="cell-number">CELL 3</span>
+          <span>High-Resolution Patch Extraction Dataset (Prevents Colab RAM Crash)</span>
+        </div>
+        <button class="copy-btn" onclick="copyCell('code-3', this)">📋 Copy Code</button>
+      </div>
+      <div class="cell-desc">Extracts dynamic 128×128 crops from full 2K images at runtime to maximize texture diversity while keeping RAM usage well under Colab's 12 GB limit.</div>
+      <pre id="code-3"># Cell 3: Memory-Efficient Large-Scale Patch Dataset
+import os
+import glob
+import random
+import torch
+from torch.utils.data import Dataset, DataLoader
+from PIL import Image
+import torchvision.transforms.functional as TF
+
+class LargeScalePatchDataset(Dataset):
+    def __init__(self, img_dir, patch_size=128, patches_per_img=2):
+        self.img_paths = sorted(glob.glob(os.path.join(img_dir, "*.png")) + glob.glob(os.path.join(img_dir, "*.jpg")))
+        self.patch_size = patch_size
+        self.patches_per_img = patches_per_img
+
+    def __len__(self):
+        return len(self.img_paths) * self.patches_per_img
+
+    def __getitem__(self, idx):
+        img_idx = idx // self.patches_per_img
+        path = self.img_paths[img_idx]
+        
+        try:
+            img = Image.open(path).convert('L') # Luminance (Y) channel
+        except Exception:
+            fallback_idx = random.randint(0, len(self.img_paths) - 1)
+            img = Image.open(self.img_paths[fallback_idx]).convert('L')
+            
+        w, h = img.size
+        if w < self.patch_size or h < self.patch_size:
+            img = img.resize((max(w, self.patch_size), max(h, self.patch_size)), Image.BICUBIC)
+            w, h = img.size
+
+        # Random Crop to multiple of 8
+        top = random.randint(0, h - self.patch_size)
+        left = random.randint(0, w - self.patch_size)
+        patch = TF.crop(img, top, left, self.patch_size, self.patch_size)
+        
+        # Data Augmentation: Horizontal and Vertical Flips
+        if random.random() > 0.5:
+            patch = TF.hflip(patch)
+        if random.random() > 0.5:
+            patch = TF.vflip(patch)
+
+        return TF.to_tensor(patch) # [1, 128, 128] in [0, 1]
+
+train_dataset = LargeScalePatchDataset("data/train_hr", patch_size=128, patches_per_img=2)
+train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4, pin_memory=True)
+print(f"Dataset Pipeline ready: {len(train_dataset):,} patches generated per epoch.")</pre>
+    </div>
+
+    <!-- CELL 4 -->
+    <div class="cell-card">
+      <div class="cell-header">
+        <div class="cell-title">
+          <span class="cell-number">CELL 4</span>
+          <span>Train Frequency GNN (25 Epochs)</span>
+        </div>
+        <button class="copy-btn" onclick="copyCell('code-4', this)">📋 Copy Code</button>
+      </div>
+      <div class="cell-desc">Trains the Frequency GNN on 72-node spatial-frequency graphs with 10-channel features using Frequency-Weighted L1 Loss.</div>
+      <pre id="code-4"># Cell 4: Train Stage 1 Frequency GNN (25 Epochs)
+import torch
+import torch.nn as nn
+from src.models import FrequencyGNN, FrequencyWeightedL1Loss
+from src.dataset import compute_block_dct_and_features
+import os
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+os.makedirs("checkpoints", exist_ok=True)
+
+# 1. Initialize Frequency GNN Model
+gnn_model = FrequencyGNN(in_channels=10, hidden_channels=128, num_layers=4).to(device)
+optimizer_gnn = torch.optim.Adam(gnn_model.parameters(), lr=1e-3, weight_decay=1e-5)
+scheduler_gnn = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_gnn, T_max=25, eta_min=1e-5)
+criterion_gnn = FrequencyWeightedL1Loss(cutoff=15).to(device)
+
+print("=" * 60)
+print("STAGE 1: Training Frequency GNN for 25 Epochs on DF2K...")
+print(f"Device: {device} | Total Parameters: {sum(p.numel() for p in gnn_model.parameters() if p.requires_grad):,}")
+print("=" * 60)
+
+for epoch in range(1, 26):
+    gnn_model.train()
+    running_loss = 0.0
+    steps = 0
+    
+    for batch_imgs in train_loader:
+        batch_imgs = batch_imgs.to(device) # [B, 1, 128, 128]
+        
+        # Compute vectorized multi-block DCT & Graph features
+        x_nodes, edge_index, edge_attr, target_ac = compute_block_dct_and_features(batch_imgs, cutoff=15)
+        x_nodes, edge_index = x_nodes.to(device), edge_index.to(device)
+        target_ac = target_ac.to(device)
+        
+        optimizer_gnn.zero_grad()
+        pred_ac = gnn_model(x_nodes, edge_index)
+        loss = criterion_gnn(pred_ac, target_ac)
+        
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(gnn_model.parameters(), 1.0)
+        optimizer_gnn.step()
+        
+        running_loss += loss.item()
+        steps += 1
+        if steps >= 300: # 300 batches per epoch keeps training brisk on large datasets
+            break
+            
+    scheduler_gnn.step()
+    avg_loss = running_loss / max(steps, 1)
+    print(f"GNN Epoch [{epoch:02d}/25] | Frequency L1 Loss: {avg_loss:.5f} | LR: {scheduler_gnn.get_last_lr()[0]:.6f}")
+
+# Save GNN Checkpoint
+torch.save(gnn_model.state_dict(), "checkpoints/model.pth")
+print("✅ Stage 1 GNN weights saved to: checkpoints/model.pth")</pre>
+    </div>
+
+    <!-- CELL 5 -->
+    <div class="cell-card">
+      <div class="cell-header">
+        <div class="cell-title">
+          <span class="cell-number">CELL 5</span>
+          <span>Train Spatial Deblocking CNN (60 Epochs)</span>
+        </div>
+        <button class="copy-btn" onclick="copyCell('code-5', this)">📋 Copy Code</button>
+      </div>
+      <div class="cell-desc">Trains the Spatial Refiner CNN for 60 epochs to eliminate 8×8 JPEG block seams and restore spatial continuous edges.</div>
+      <pre id="code-5"># Cell 5: Train Stage 2 Spatial Refiner CNN (60 Epochs)
+import torch
+import torch.nn as nn
+from src.models import SpatialRefinerCNN
+from src.dataset import simulate_jpeg_truncation
+
+cnn_model = SpatialRefinerCNN(in_channels=1, hidden_channels=64, num_residual_blocks=6).to(device)
+optimizer_cnn = torch.optim.Adam(cnn_model.parameters(), lr=5e-4, weight_decay=1e-5)
+scheduler_cnn = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_cnn, T_max=60, eta_min=1e-5)
+criterion_cnn = nn.L1Loss().to(device)
+
+print("=" * 60)
+print("STAGE 2: Training Spatial Refiner CNN for 60 Epochs on DF2K...")
+print(f"Device: {device} | Total Parameters: {sum(p.numel() for p in cnn_model.parameters() if p.requires_grad):,}")
+print("=" * 60)
+
+for epoch in range(1, 61):
+    cnn_model.train()
+    running_loss = 0.0
+    steps = 0
+    
+    for batch_imgs in train_loader:
+        target_clean = batch_imgs.to(device) # [B, 1, 128, 128]
+        
+        # Simulate baseline JPEG truncated input (Cutoff = 15)
+        with torch.no_grad():
+            degraded_input = simulate_jpeg_truncation(target_clean, cutoff=15)
+            
+        optimizer_cnn.zero_grad()
+        restored = cnn_model(degraded_input)
+        loss = criterion_cnn(restored, target_clean)
+        
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(cnn_model.parameters(), 1.0)
+        optimizer_cnn.step()
+        
+        running_loss += loss.item()
+        steps += 1
+        if steps >= 300:
+            break
+            
+    scheduler_cnn.step()
+    avg_loss = running_loss / max(steps, 1)
+    if epoch % 5 == 0 or epoch == 1:
+        print(f"CNN Epoch [{epoch:02d}/60] | Spatial L1 Loss: {avg_loss:.5f} | LR: {scheduler_cnn.get_last_lr()[0]:.6f}")
+
+# Save CNN Checkpoint
+torch.save(cnn_model.state_dict(), "checkpoints/spatial_refiner.pth")
+print("✅ Stage 2 Spatial CNN weights saved to: checkpoints/spatial_refiner.pth")</pre>
+    </div>
+
+    <!-- CELL 6 -->
+    <div class="cell-card">
+      <div class="cell-header">
+        <div class="cell-title">
+          <span class="cell-number">CELL 6</span>
+          <span>Package Combined Checkpoint & Run Set5 Benchmark</span>
+        </div>
+        <button class="copy-btn" onclick="copyCell('code-6', this)">📋 Copy Code</button>
+      </div>
+      <div class="cell-desc">Bundles both GNN and CNN weights into <code>checkpoints/hybrid_model.pth</code> and evaluates the Set5 benchmark across all 4 pipelines.</div>
+      <pre id="code-6"># Cell 6: Package Combined Checkpoint & Run Set5 Benchmark
+import torch
+
+hybrid_checkpoint = {
+    'gnn_state_dict': torch.load('checkpoints/model.pth', map_location='cpu'),
+    'cnn_state_dict': torch.load('checkpoints/spatial_refiner.pth', map_location='cpu'),
+    'cutoff': 15,
+    'dataset': 'DF2K (DIV2K + Flickr2K)',
+    'epochs': '25_gnn + 60_cnn'
+}
+
+torch.save(hybrid_checkpoint, 'checkpoints/hybrid_model.pth')
+print("✅ Combined hybrid checkpoint saved to: checkpoints/hybrid_model.pth\n")
+
+# Run full evaluation script on Set5 benchmark
+!python evaluate.py</pre>
+    </div>
+
+    <!-- CELL 7 -->
+    <div class="cell-card">
+      <div class="cell-header">
+        <div class="cell-title">
+          <span class="cell-number">CELL 7</span>
+          <span>Download Checkpoint to Your Laptop</span>
+        </div>
+        <button class="copy-btn" onclick="copyCell('code-7', this)">📋 Copy Code</button>
+      </div>
+      <div class="cell-desc">Automatically prompts your browser to download <code>hybrid_model.pth</code> directly into your laptop's Downloads folder.</div>
+      <pre id="code-7"># Cell 7: Download trained weights to your laptop
+from google.colab import files
+
+print("Triggering browser download for checkpoints/hybrid_model.pth...")
+files.download('checkpoints/hybrid_model.pth')</pre>
+    </div>
+
+    <div class="instructions-card" style="border-left-color: var(--success); margin-top: 40px;">
+      <h2>📥 What to do after downloading `hybrid_model.pth`:</h2>
+      <p style="color: var(--text-sub); margin-bottom: 10px;">Once the file finishes downloading to your laptop:</p>
+      <ol>
+        <li>Move <strong><code>hybrid_model.pth</code></strong> into your local project folder: <code style="color: #a5b4fc;">d:\DIP Assignment\checkpoints\</code>.</li>
+        <li>You can now run full evaluation offline on your laptop with zero internet:</li>
+      </ol>
+      <pre style="margin-top: 10px; border-radius: 8px;">python evaluate.py</pre>
+    </div>
+
+    <div class="summary-footer">
+      <p>DIP Assignment — Multi-Block Spatial-Frequency GNN & CNN Hybrid Restoration</p>
+    </div>
+
+  </div>
+
+  <script>
+    function copyCell(elementId, btnElement) {
+      const codeText = document.getElementById(elementId).innerText;
+      navigator.clipboard.writeText(codeText).then(() => {
+        const originalText = btnElement.innerHTML;
+        btnElement.innerHTML = "✅ Copied!";
+        btnElement.classList.add("copied");
+        setTimeout(() => {
+          btnElement.innerHTML = originalText;
+          btnElement.classList.remove("copied");
+        }, 2000);
+      }).catch(err => {
+        console.error("Failed to copy code: ", err);
+      });
+    }
+  </script>
+
+</body>
+</html>

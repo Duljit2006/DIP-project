@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuroDCT Research System — DIP Lab v3.4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface": "#f9f9ff",
+            "surface-dim": "#d3daef",
+            "surface-bright": "#f9f9ff",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#f1f3ff",
+            "surface-container": "#e9edff",
+            "surface-container-high": "#e1e8fd",
+            "surface-container-highest": "#dce2f7",
+            "on-surface": "#141b2b",
+            "on-surface-variant": "#464555",
+            "inverse-surface": "#293040",
+            "inverse-on-surface": "#edf0ff",
+            "outline": "#777587",
+            "outline-variant": "#c7c4d8",
+            "primary": "#3525cd",
+            "on-primary": "#ffffff",
+            "primary-container": "#4f46e5",
+            "on-primary-container": "#dad7ff",
+            "primary-fixed": "#e2dfff",
+            "primary-fixed-dim": "#c3c0ff",
+            "secondary": "#585f6c",
+            "secondary-container": "#dce2f3",
+            "error": "#ba1a1a",
+            "error-container": "#ffdad6",
+          },
+          fontFamily: {
+            "sans": ["Hanken Grotesk", "system-ui", "sans-serif"],
+            "mono": ["JetBrains Mono", "monospace"],
+          },
+          spacing: {
+            "gutter-lg": "1.5rem",
+            "gutter": "1rem",
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "space-md": "1rem",
+            "space-lg": "1.5rem",
+            "space-xl": "2.5rem",
+            "margin-lg": "2.5rem",
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        font-family: "Hanken Grotesk", sans-serif;
+        background-color: #f9f9ff;
+        color: #141b2b;
+        scroll-behavior: smooth;
+      }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: #f1f3ff; }
+      ::-webkit-scrollbar-thumb { background: #c7c4d8; }
+      ::-webkit-scrollbar-thumb:hover { background: #4f46e5; }
+    }
+
+    /* Swiss Tabular Numerals */
+    .tnum { font-variant-numeric: tabular-nums; }
+
+    /* Smooth Stage Transitions */
+    .stage-panel {
+      display: none;
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    .stage-panel.active {
+      display: block;
+      animation: panelEnter 0.36s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes panelEnter {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Micro-animations & Shimmers */
+    @keyframes scanLine {
+      0%   { transform: translateY(-100%); opacity: 0; }
+      30%  { opacity: 0.7; }
+      70%  { opacity: 0.7; }
+      100% { transform: translateY(400%); opacity: 0; }
+    }
+    .scan-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #4f46e5, transparent);
+      pointer-events: none;
+      opacity: 0;
+    }
+    #dropzone:hover .scan-line,
+    #dropzone.drag-active .scan-line {
+      animation: scanLine 2.2s linear infinite;
+    }
+
+    /* Corner bracket animation */
+    .corner-tick {
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #dropzone:hover .corner-tick,
+    #dropzone.drag-active .corner-tick {
+      background-color: #3525cd;
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Subtle pulse for interactive handles */
+    @keyframes handlePulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.35); }
+      50%      { box-shadow: 0 0 0 8px rgba(79, 70, 229, 0); }
+    }
+    .pulse-ring {
+      animation: handlePulse 2.4s infinite;
+    }
+
+    /* Radio Card Interactive Selection Animation */
+    .arch-card {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      border-left-width: 3px;
+    }
+    .arch-card.selected {
+      background-color: #eef2ff;
+      border-color: #3525cd;
+      border-left-color: #3525cd;
+    }
+
+    /* Range Slider Styling */
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #3525cd;
+      border: 2px solid #ffffff;
+      outline: 1px solid #3525cd;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Nav active underline indicator */
+    .nav-btn {
+      position: relative;
+      transition: color 0.2s ease, border-color 0.2s ease;
+    }
+    .nav-btn.nav-active {
+      color: #141b2b;
+      font-weight: 700;
+    }
+    .nav-btn.nav-active::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: #3525cd;
+    }
+
+    /* Tab fade transition */
+    .eval-tab-pane {
+      display: none;
+    }
+    .eval-tab-pane.active {
+      display: block;
+      animation: fadeTab 0.24s ease forwards;
+    }
+    @keyframes fadeTab {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* Card micro-hover lift without violating flat Swiss tone */
+    .metric-card {
+      transition: border-color 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .metric-card:hover {
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body class="bg-surface font-sans text-on-surface antialiased min-h-screen flex flex-col">
+
+  <!-- ==================== GLOBAL HEADER NAVBAR ==================== -->
+  <header class="fixed top-0 w-full z-50 bg-surface-container-lowest border-b border-outline-variant">
+    <div class="h-16 w-full px-4 lg:px-6 flex items-center justify-between gap-4">
+      <!-- Brand + System Badge -->
+      <div class="flex items-center gap-4 min-w-0">
+        <button onclick="switchStage(1)" class="flex items-baseline gap-2 cursor-pointer focus:outline-none group">
+          <span class="text-[20px] font-bold tracking-tight text-on-surface group-hover:text-primary transition-colors">NeuroDCT</span>
+          <span class="hidden sm:inline-block text-[11px] font-bold uppercase text-secondary tracking-wider">DIP Lab v3.4</span>
+        </button>
+        <div class="hidden xl:flex items-center border border-outline-variant bg-surface px-2 py-1 whitespace-nowrap">
+          <span class="font-mono text-[11px] text-primary font-semibold tnum" id="sys-device-badge">[INIT_HARDWARE...]</span>
+        </div>
+      </div>
+
+      <!-- Desktop Pipeline Navigation -->
+      <nav class="hidden lg:flex items-center h-full gap-6 border-l border-outline-variant pl-6">
+        <button data-stage="1" onclick="switchStage(1)" class="nav-btn nav-active h-full flex items-center text-[11px] font-bold uppercase tracking-wider text-secondary hover:text-on-surface whitespace-nowrap cursor-pointer">
+          01. Input Image
+        </button>
+        <button data-stage="2" onclick="switchStage(2)" class="nav-btn h-full flex items-center text-[11px] font-bold uppercase tracking-wider text-secondary hover:text-on-surface whitespace-nowrap cursor-pointer">
+          02. Configure Pipeline
+        </button>
+        <button data-stage="3" onclick="switchStage(3)" class="nav-btn h-full flex items-center text-[11px] font-bold uppercase tracking-wider text-secondary hover:text-on-surface whitespace-nowrap cursor-pointer">
+          03. Evaluation &amp; Results
+        </button>
+        <button data-stage="4" onclick="switchStage(4)" class="nav-btn h-full flex items-center text-[11px] font-bold uppercase tracking-wider text-secondary hover:text-on-surface whitespace-nowrap cursor-pointer">
+          Benchmarks
+        </button>
+      </nav>
+
+      <!-- Right Controls: Live Latency + Judge QR Modal Trigger -->
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 border border-outline-variant bg-surface whitespace-nowrap">
+          <span class="w-2 h-2 bg-primary animate-pulse" id="header-status-dot"></span>
+          <span class="font-mono text-[11px] uppercase text-secondary tnum" id="header-latency-badge">CNN➔GNN: READY</span>
+        </div>
+        <button onclick="openQrModal()" title="Mobile Judge QR Code" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary hover:bg-primary-container text-on-primary font-mono text-[11px] font-semibold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap">
+          <span class="material-symbols-outlined text-[16px]">qr_code_2</span>
+          <span class="hidden sm:inline">Judge QR</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile & Tablet Navigation Sub-bar (< 1024px) -->
+    <div class="lg:hidden grid grid-cols-4 border-t border-outline-variant bg-surface-container-low text-center">
+      <button data-stage-mob="1" onclick="switchStage(1)" class="mob-nav py-2 text-[10px] font-bold uppercase tracking-wide border-b-2 border-primary text-primary bg-white">01. Input</button>
+      <button data-stage-mob="2" onclick="switchStage(2)" class="mob-nav py-2 text-[10px] font-bold uppercase tracking-wide border-b-2 border-transparent text-secondary">02. Config</button>
+      <button data-stage-mob="3" onclick="switchStage(3)" class="mob-nav py-2 text-[10px] font-bold uppercase tracking-wide border-b-2 border-transparent text-secondary">03. Results</button>
+      <button data-stage-mob="4" onclick="switchStage(4)" class="mob-nav py-2 text-[10px] font-bold uppercase tracking-wide border-b-2 border-transparent text-secondary">Benchmarks</button>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT CONTAINER ==================== -->
+  <main class="w-full pt-24 lg:pt-16 flex-1 bg-surface">
+
+    <!-- =============================================================== -->
+    <!-- STAGE 01: INPUT IMAGE SELECTION                                 -->
+    <!-- =============================================================== -->
+    <section id="view-stage-1" class="stage-panel active">
+      <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-10">
+        <!-- Top Step Header -->
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-[11px] uppercase text-primary font-semibold">[PIPELINE STAGE: 01 / 03]</span>
+              <span class="text-secondary font-mono text-[11px]">•</span>
+              <span class="font-mono text-[11px] text-secondary uppercase tracking-widest">INGESTION PROTOCOL</span>
+            </div>
+            <h1 class="text-[28px] font-semibold text-on-surface tracking-tight leading-tight">Stage 1: Input Image Selection</h1>
+            <p class="text-[14px] text-secondary max-w-2xl">
+              Upload any image or select a standard DIP benchmark specimen to synthesize 2D-DCT frequency coefficients and evaluate dual-domain GNN + CNN restoration.
+            </p>
+          </div>
+          <div class="flex items-center gap-3 bg-surface-container-lowest border border-outline-variant p-3 shrink-0">
+            <div class="w-2.5 h-2.5 bg-primary"></div>
+            <div class="flex flex-col">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-secondary">DSP Engine Status</span>
+              <span class="font-mono text-[13px] font-semibold text-on-surface" id="s1-engine-status">FP32_MULTI_DOMAIN_READY</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stepper Progress Bar -->
+        <div class="grid grid-cols-3 gap-2 mb-8">
+          <div class="h-1.5 bg-primary transition-all duration-300"></div>
+          <div class="h-1.5 bg-surface-container-highest transition-all duration-300"></div>
+          <div class="h-1.5 bg-surface-container-highest transition-all duration-300"></div>
+        </div>
+
+        <!-- Central Workspace Card -->
+        <div class="w-full max-w-4xl mx-auto bg-surface-container-lowest border border-outline-variant p-5 sm:p-8">
+          <!-- Metadata Strip + Operating Mode Selector -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-6 bg-surface-container-low p-3 border border-outline-variant/60">
+            <div class="flex items-center gap-2 text-secondary font-mono text-[11px]">
+              <span class="material-symbols-outlined text-[16px] text-primary">sensors</span>
+              <span class="uppercase" id="s1-ingest-tag">INGEST_STREAM :: SIMULATION_EVAL_MODE</span>
+            </div>
+            <!-- Simulation vs Blind Enhancement Mode Switch -->
+            <div class="flex items-center border border-outline-variant bg-white p-0.5 self-start sm:self-auto">
+              <button type="button" id="mode-btn-sim" onclick="setOperatingMode('simulation')" class="px-3 py-1 font-mono text-[11px] font-semibold uppercase transition-all bg-primary text-white cursor-pointer">
+                Simulation (Eval)
+              </button>
+              <button type="button" id="mode-btn-enh" onclick="setOperatingMode('enhancement')" class="px-3 py-1 font-mono text-[11px] font-semibold uppercase transition-all text-secondary hover:text-on-surface cursor-pointer">
+                Enhancement (Blind JPEG)
+              </button>
+            </div>
+          </div>
+
+          <p class="text-[12px] text-secondary mb-5 font-mono bg-surface p-2.5 border-l-2 border-primary" id="mode-desc-banner">
+            [SIMULATION MODE]: Treats your image as Clean Ground Truth, applies JPEG truncation at your chosen QF, restores it, and computes exact PSNR / PSNR-B / SSIM &amp; Error Heatmaps.
+          </p>
+
+          <!-- Interactive Drag & Drop Zone -->
+          <div id="dropzone" class="relative group bg-surface border border-dashed border-outline-variant p-8 sm:p-12 text-center transition-all cursor-pointer hover:bg-surface-container-low hover:border-primary overflow-hidden">
+            <div class="scan-line"></div>
+            <!-- Corner Brackets -->
+            <div class="corner-tick absolute top-0 left-0 w-3 h-3 bg-secondary"></div>
+            <div class="corner-tick absolute top-0 right-0 w-3 h-3 bg-secondary"></div>
+            <div class="corner-tick absolute bottom-0 left-0 w-3 h-3 bg-secondary"></div>
+            <div class="corner-tick absolute bottom-0 right-0 w-3 h-3 bg-secondary"></div>
+
+            <div class="w-16 h-16 mx-auto mb-4 bg-surface-container border border-outline-variant flex items-center justify-center group-hover:border-primary transition-colors">
+              <span class="material-symbols-outlined text-primary text-[32px] group-hover:scale-110 transition-transform">cloud_upload</span>
+            </div>
+
+            <h2 class="text-[20px] font-semibold text-on-surface mb-1">
+              Upload Test Image for Artifact Reduction
+            </h2>
+            <p class="text-[13px] text-secondary max-w-md mx-auto mb-6">
+              Supports PNG, JPG, BMP • Color RGB or Grayscale (Auto-scaled to 640px max for instant GPU execution)
+            </p>
+
+            <label for="file-upload" class="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-container text-on-primary text-[14px] font-semibold px-6 py-2.5 transition-all cursor-pointer active:scale-95">
+              <span class="material-symbols-outlined text-[18px]">add_photo_alternate</span>
+              <span>Browse Local File</span>
+            </label>
+            <input id="file-upload" type="file" accept="image/png,image/jpeg,image/bmp,image/webp" class="hidden" />
+
+            <p class="font-mono text-[11px] text-secondary mt-5 tracking-wide">
+              OR DRAG AND DROP SOURCE FILE DIRECTLY INTO THIS RECEPTOR
+            </p>
+          </div>
+
+          <!-- Divider -->
+          <div class="relative my-8 flex items-center justify-center">
+            <div class="w-full h-px bg-outline-variant"></div>
+            <span class="absolute bg-surface-container-lowest px-4 text-[11px] font-bold uppercase tracking-wider text-secondary">
+              Or start with a benchmark preset
+            </span>
+          </div>
+
+          <!-- 4 Preset Benchmark Cards (Populated with real thumbnails!) -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5" id="preset-selector">
+            <!-- Populated dynamically on load from /api/presets -->
+          </div>
+
+          <!-- Active Selection Confirmation Bar + Thumbnail -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-low border border-outline-variant p-3.5 transition-all" id="selection-status">
+            <div class="flex items-center gap-3 min-w-0">
+              <img id="s1-preview-thumb" src="" alt="Preview" class="w-12 h-12 object-cover border border-outline-variant bg-black/5 shrink-0 hidden" />
+              <span class="material-symbols-outlined text-[20px] text-primary shrink-0" id="s1-check-icon">check_circle</span>
+              <div class="min-w-0">
+                <div class="text-[13px] font-medium text-on-surface truncate" id="selected-summary">
+                  Loading benchmark specimen...
+                </div>
+                <div class="font-mono text-[11px] text-secondary tnum" id="selected-dims">Preparing buffer...</div>
+              </div>
+            </div>
+            <button type="button" onclick="proceedToConfigure()" class="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-container text-on-primary text-[12px] font-bold uppercase tracking-wider px-5 py-2.5 transition-all cursor-pointer shrink-0 group">
+              <span>Proceed to Pipeline</span>
+              <span class="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+            </button>
+          </div>
+
+          <!-- Spec Footer Strip -->
+          <div class="mt-6 pt-4 border-t border-surface-container grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-[11px] text-secondary">
+            <div class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px] text-primary">aspect_ratio</span>
+              <span>AUTO-CROPPED TO 8×8 BLOCKS</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-[16px] text-primary">transform</span>
+              <span>COLORSPACE: YCbCr LUMINANCE</span>
+            </div>
+            <div class="flex items-center gap-1.5 sm:justify-end">
+              <span class="material-symbols-outlined text-[16px] text-primary">verified</span>
+              <span>72-NODE GRAPH + SPATIAL CNN</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- =============================================================== -->
+    <!-- STAGE 02: CONFIGURE PIPELINE PARAMETERS                         -->
+    <!-- =============================================================== -->
+    <section id="view-stage-2" class="stage-panel">
+      <!-- Sub-header Utility Strip -->
+      <div class="w-full bg-surface-container-lowest border-b border-outline-variant px-4 lg:px-6 py-2.5">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <button type="button" onclick="switchStage(1)" class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-secondary hover:text-primary transition-colors cursor-pointer">
+            <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+            <span>Change Source Sample</span>
+          </button>
+          <div class="flex items-center gap-2 bg-surface border border-outline-variant px-3 py-1">
+            <span class="material-symbols-outlined text-[15px] text-primary">check_circle</span>
+            <span class="font-mono text-[11px] text-on-surface font-semibold" id="s2-topbar-name">Barbara_Set14.png</span>
+            <span class="text-secondary font-mono text-[11px]">|</span>
+            <span class="font-mono text-[11px] text-secondary tnum" id="s2-topbar-dims">720×576 px</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full max-w-6xl mx-auto px-4 lg:px-6 py-6">
+        <!-- Stage Title Strip -->
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-outline-variant pb-4 mb-6">
+          <div>
+            <div class="flex items-center gap-2 font-mono text-[11px] uppercase text-primary font-semibold mb-1">
+              <span>PIPELINE EXECUTION PHASE</span>
+              <span>•</span>
+              <span>STAGE 02 / 03</span>
+            </div>
+            <h1 class="text-[28px] font-semibold text-on-surface tracking-tight">Configure Reconstruction Parameters</h1>
+            <p class="text-[14px] text-secondary mt-0.5">
+              Click on the specimen canvas to target an 8×8 inspection region, adjust DCT cutoff degradation, and pick your neural architecture.
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant">
+              <div class="font-mono text-[10px] text-secondary uppercase">COMPUTATION PROFILE</div>
+              <div class="font-mono text-[13px] text-on-surface font-semibold" id="s2-hw-profile">CUDA_RTX_FP32</div>
+            </div>
+            <div class="px-3 py-1.5 bg-surface-container-lowest border border-outline-variant">
+              <div class="font-mono text-[10px] text-secondary uppercase">ACTIVE MODE</div>
+              <div class="font-mono text-[13px] text-primary font-semibold uppercase" id="s2-mode-badge">SIMULATION</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stepper Progress Bar -->
+        <div class="grid grid-cols-3 gap-2 mb-6">
+          <div class="h-1.5 bg-primary"></div>
+          <div class="h-1.5 bg-primary"></div>
+          <div class="h-1.5 bg-surface-container-highest"></div>
+        </div>
+
+        <!-- 12-Column Balanced Workbench -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Left Column (5 cols): Interactive Specimen & Telemetry -->
+          <div class="lg:col-span-5 flex flex-col gap-4">
+            <div class="bg-surface-container-lowest border border-outline-variant p-5 flex flex-col">
+              <div class="flex items-center justify-between pb-3 border-b border-outline-variant mb-4">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-secondary">Loaded Test Sample (Click to Move ROI)</span>
+                <button type="button" id="toggle-grid-btn" onclick="toggleDctGridOverlay()" class="font-mono text-[10px] font-semibold bg-surface-container px-2 py-0.5 text-primary border border-primary/40 hover:bg-primary hover:text-white transition-colors cursor-pointer">
+                  8×8 GRID: ON
+                </button>
+              </div>
+
+              <!-- Interactive Specimen Viewport -->
+              <div id="s2-canvas-wrap" onclick="moveRoiFromClick(event)" class="relative w-full aspect-square bg-[#0b0f19] border border-outline-variant overflow-hidden flex items-center justify-center cursor-crosshair select-none group">
+                <img id="s2-preview-img" src="" alt="Loaded Test Sample" class="w-full h-full object-contain pointer-events-none" />
+                <!-- Real-time 8x8 DCT Frequency Grid Overlay -->
+                <div id="s2-dct-grid" class="absolute inset-0 bg-[linear-gradient(to_right,rgba(79,70,229,0.28)_1px,transparent_1px),linear-gradient(to_bottom,rgba(79,70,229,0.28)_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none transition-opacity duration-200"></div>
+                <!-- ROI Coordinate Badge -->
+                <div class="absolute top-2 left-2 px-2 py-0.5 bg-black/85 font-mono text-[10px] text-white tnum" id="s2-roi-badge">
+                  ROI: AUTO_PEAK_ARTIFACT [64×64]
+                </div>
+                <div class="absolute bottom-2 left-2 px-2 py-0.5 bg-black/85 font-mono text-[10px] text-white flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 bg-primary"></span>
+                  <span>8×8 BLOCK DIAGNOSTIC ACTIVE</span>
+                </div>
+                <!-- Movable Scope Reticle -->
+                <div id="s2-reticle" class="absolute w-16 h-16 border-2 border-primary bg-primary/10 pointer-events-none flex items-center justify-center transition-all duration-200" style="left: calc(50% - 32px); top: calc(50% - 32px);">
+                  <div class="w-1.5 h-1.5 bg-primary"></div>
+                  <span class="absolute -bottom-4 right-0 font-mono text-[9px] text-white bg-primary px-1 whitespace-nowrap">ROI_TARGET</span>
+                </div>
+              </div>
+
+              <!-- Metadata Triplet -->
+              <div class="mt-4 grid grid-cols-3 gap-2 text-center">
+                <div class="bg-surface border border-outline-variant p-2">
+                  <div class="font-mono text-[10px] text-secondary uppercase">RESOLUTION</div>
+                  <div class="font-mono text-[13px] text-on-surface font-semibold tnum" id="s2-meta-res">-- × --</div>
+                </div>
+                <div class="bg-surface border border-outline-variant p-2">
+                  <div class="font-mono text-[10px] text-secondary uppercase">DOMAIN</div>
+                  <div class="font-mono text-[13px] text-on-surface font-semibold">Y-CHANNEL</div>
+                </div>
+                <div class="bg-surface border border-outline-variant p-2">
+                  <div class="font-mono text-[10px] text-secondary uppercase">BUFFER</div>
+                  <div class="font-mono text-[13px] text-on-surface font-semibold tnum" id="s2-meta-kb">-- KB</div>
+                </div>
+              </div>
+
+              <!-- Prior Bound Formula Card -->
+              <div class="mt-4 p-3 bg-surface border border-outline-variant">
+                <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-secondary mb-1.5">
+                  <span>HARD SPECTRAL ANCHOR INVARIANT</span>
+                  <span class="font-mono text-primary">[EQ. 6 LOCK]</span>
+                </div>
+                <div class="font-mono text-[12px] text-on-surface text-center py-1.5 bg-white border border-outline-variant tnum">
+                  X_out[0:k] = X_true[0:k] ,  X_out[k:64] = GNN(CNN(X))
+                </div>
+                <p class="text-[11px] text-secondary mt-1.5 leading-snug">
+                  Clamps preserved low-frequency DCT anchors back to ground truth after spatial deblocking to eliminate spectral drift.
+                </p>
+              </div>
+            </div>
+
+            <!-- Acceleration Telemetry Card -->
+            <div class="bg-surface-container-lowest border border-outline-variant p-3.5 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[18px] text-primary">memory</span>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-on-surface">Dual-Domain Acceleration</span>
+              </div>
+              <span class="font-mono text-[11px] text-primary font-semibold" id="s2-accel-badge">[CUDA / SIMD READY]</span>
+            </div>
+          </div>
+
+          <!-- Right Column (7 cols): Customization Controls & Architectures -->
+          <div class="lg:col-span-7 flex flex-col gap-5">
+            <div class="bg-surface-container-lowest border border-outline-variant p-6 flex flex-col gap-6">
+              <!-- Section 1: Quality Factor / Cutoff Slider -->
+              <div class="flex flex-col gap-3 pb-5 border-b border-outline-variant">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div class="flex items-baseline gap-2.5">
+                    <label for="qf-slider" class="text-[11px] font-bold uppercase tracking-wider text-secondary" id="qf-slider-label">
+                      Compression Severity
+                    </label>
+                    <span class="text-[20px] font-semibold text-on-surface tracking-tight font-mono tnum" id="qf-value-display">
+                      QF: 15 (Cutoff 15/64)
+                    </span>
+                  </div>
+                  <span class="font-mono text-[11px] px-2 py-0.5 bg-surface-container border border-outline-variant text-primary font-semibold uppercase" id="qf-severity-badge">
+                    SEVERE BLOCKING &amp; RINGING
+                  </span>
+                </div>
+
+                <div class="py-1">
+                  <input id="qf-slider" type="range" min="10" max="80" step="5" value="15" class="w-full h-1.5 bg-surface-container-highest appearance-none cursor-pointer" />
+                  <div class="flex justify-between font-mono text-[10px] text-secondary mt-2 px-0.5 tnum">
+                    <span>10 [EXTREME]</span>
+                    <span>15 [CANONICAL]</span>
+                    <span>30</span>
+                    <span>50</span>
+                    <span>80 [MILD]</span>
+                  </div>
+                </div>
+                <p class="text-[12px] text-secondary" id="qf-helper-text">
+                  Retains top <strong class="text-on-surface font-mono" id="qf-kept-count">15</strong> low-frequency zigzag DCT coefficients per 8×8 block and zeroes out the remaining <strong class="text-on-surface font-mono" id="qf-zero-count">49</strong> high frequencies.
+                </p>
+              </div>
+
+              <!-- Section 2: Restoration Architecture Selector -->
+              <div class="flex flex-col gap-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-bold uppercase tracking-wider text-secondary">Primary Evaluation Architecture</span>
+                  <span class="font-mono text-[11px] text-secondary">ALL 5 BENCHMARKED AUTOMATICALLY</span>
+                </div>
+
+                <div class="flex flex-col gap-2" id="architecture-group">
+                  <!-- Option 1: Proposed CNN -> GNN -->
+                  <label class="arch-card selected relative flex items-start gap-3.5 p-3.5 border border-outline-variant cursor-pointer">
+                    <input type="radio" name="pipeline_arch" value="cnn_gnn" checked class="mt-1 w-4 h-4 accent-primary cursor-pointer" />
+                    <div class="flex-1 min-w-0">
+                      <div class="flex flex-wrap items-center justify-between gap-1">
+                        <span class="text-[15px] font-semibold text-on-surface">Proposed Hybrid: Spatial CNN ➔ Frequency GNN</span>
+                        <span class="font-mono text-[10px] px-1.5 py-0.5 bg-primary text-white font-bold uppercase tracking-wider">STATE-OF-THE-ART</span>
+                      </div>
+                      <p class="text-[12px] text-secondary mt-1">
+                        Spatial Refiner CNN eliminates 8×8 grid seams first; 2D-DCT + Frequency GNN + Eq. 6 lock restore harmonics with zero spectral drift.
+                      </p>
+                    </div>
+                  </label>
+
+                  <!-- Option 2: Hybrid GNN -> CNN -->
+                  <label class="arch-card relative flex items-start gap-3.5 p-3.5 border border-outline-variant bg-surface-container-lowest hover:border-on-surface cursor-pointer">
+                    <input type="radio" name="pipeline_arch" value="gnn_cnn" class="mt-1 w-4 h-4 accent-primary cursor-pointer" />
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="text-[15px] font-semibold text-on-surface">Hybrid (GNN ➔ Spatial CNN)</span>
+                        <span class="font-mono text-[10px] text-secondary">FREQ-FIRST</span>
+                      </div>
+                      <p class="text-[12px] text-secondary mt-1">
+                        Predicts high-frequency harmonics inside 72-node graphs first, then passes pixels through CNN for boundary smoothing.
+                      </p>
+                    </div>
+                  </label>
+
+                  <!-- Option 3: Spatial CNN Only -->
+                  <label class="arch-card relative flex items-start gap-3.5 p-3.5 border border-outline-variant bg-surface-container-lowest hover:border-on-surface cursor-pointer">
+                    <input type="radio" name="pipeline_arch" value="cnn_only" class="mt-1 w-4 h-4 accent-primary cursor-pointer" />
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="text-[15px] font-semibold text-on-surface">Pure Spatial CNN (ARCNN-style)</span>
+                        <span class="font-mono text-[10px] text-secondary">SPATIAL-ONLY</span>
+                      </div>
+                      <p class="text-[12px] text-secondary mt-1">
+                        Convolutional deblocking without frequency locking; susceptible to low-frequency spectral drift.
+                      </p>
+                    </div>
+                  </label>
+
+                  <!-- Option 4: Frequency GNN Only -->
+                  <label class="arch-card relative flex items-start gap-3.5 p-3.5 border border-outline-variant bg-surface-container-lowest hover:border-on-surface cursor-pointer">
+                    <input type="radio" name="pipeline_arch" value="gnn_only" class="mt-1 w-4 h-4 accent-primary cursor-pointer" />
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="text-[15px] font-semibold text-on-surface">Stage 1: Multi-Block Frequency GNN Alone</span>
+                        <span class="font-mono text-[10px] text-secondary">72-NODE GRAPH</span>
+                      </div>
+                      <p class="text-[12px] text-secondary mt-1">
+                        Graph message passing over octave harmonics within DCT blocks; lacks continuous spatial border filters.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Section 3: Hard Spectral Consistency Toggle -->
+              <div class="p-3.5 bg-surface border border-outline-variant flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[20px] text-primary">verified_user</span>
+                    <span class="text-[14px] font-semibold text-on-surface">Hard Spectral Consistency Lock (Eq. 6 Anchor)</span>
+                  </div>
+                  <button type="button" id="eq6-toggle" role="switch" aria-checked="true" onclick="toggleEq6()" class="w-11 h-6 bg-primary relative inline-flex items-center p-0.5 cursor-pointer transition-colors">
+                    <span id="eq6-thumb" class="translate-x-5 inline-block w-5 h-5 bg-white transition-transform duration-200"></span>
+                  </button>
+                </div>
+                <p class="text-[12px] text-secondary pl-7">
+                  Clamps preserved low-frequency DCT anchors back to exact ground truth values, eliminating CNN spectral overshoot and color drift.
+                </p>
+              </div>
+
+              <!-- Section 4: Primary Run CTA -->
+              <div>
+                <button type="button" id="run-eval-btn" onclick="runEvaluationPipeline()" class="w-full bg-primary hover:bg-primary-container text-on-primary text-[15px] font-semibold py-4 px-5 flex items-center justify-between transition-all cursor-pointer active:scale-[0.99] group">
+                  <div class="flex items-center gap-2.5">
+                    <span class="material-symbols-outlined text-[22px] group-hover:translate-x-0.5 transition-transform">play_arrow</span>
+                    <span>Run Real-Time Reconstruction &amp; Evaluation</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 bg-black/20 px-2.5 py-1 font-mono text-[11px]">
+                    <span class="text-white/80">TARGET:</span>
+                    <span class="text-white font-bold">ALL 5 MODELS</span>
+                  </div>
+                </button>
+                <div class="flex items-center justify-between text-secondary font-mono text-[10px] mt-2 px-0.5">
+                  <span>OUTPUT DESTINATION: FRAME_BUFFER_EVAL</span>
+                  <span>ISO/IEC 10918-1 COMPLIANT</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- =============================================================== -->
+    <!-- STAGE 03: EVALUATION & RESULTS                                  -->
+    <!-- =============================================================== -->
+    <section id="view-stage-3" class="stage-panel">
+      <div class="w-full max-w-7xl mx-auto px-4 lg:px-6 py-6 flex flex-col gap-6">
+        <!-- Top Action Bar -->
+        <div class="w-full flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <button type="button" onclick="switchStage(2)" class="flex items-center gap-1.5 px-3.5 py-2 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low border border-outline-variant hover:border-on-surface transition-all text-[13px] font-semibold cursor-pointer">
+              <span class="material-symbols-outlined text-[18px] text-secondary">arrow_back</span>
+              <span>Reconfigure Parameters</span>
+            </button>
+            <span class="font-mono text-[11px] text-secondary uppercase hidden sm:inline">STAGE_03 // LIVE_INFERENCE_EVAL</span>
+          </div>
+
+          <!-- Center Specimen + Method Pill -->
+          <div class="flex items-center gap-2 px-3.5 py-1.5 bg-surface-container border border-primary/20 text-primary font-mono text-[11px] font-semibold">
+            <span class="w-2 h-2 bg-primary"></span>
+            <span id="s3-active-pill">Sample • Model</span>
+          </div>
+
+          <!-- Right Download Buttons -->
+          <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+            <button type="button" onclick="downloadPng()" class="flex items-center gap-1.5 px-3.5 py-2 bg-primary hover:bg-primary-container text-on-primary transition-colors text-[12px] font-semibold cursor-pointer">
+              <span class="material-symbols-outlined text-[16px]">image</span>
+              <span>Download PNG</span>
+            </button>
+            <button type="button" onclick="downloadJson()" class="flex items-center gap-1.5 px-3.5 py-2 bg-surface-container-lowest text-on-surface hover:bg-surface-container-low border border-outline-variant hover:border-on-surface transition-colors text-[12px] font-semibold cursor-pointer">
+              <span class="material-symbols-outlined text-[16px] text-secondary">data_object</span>
+              <span>Export JSON</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Upper Visual Inspection Workbench -->
+        <div class="w-full bg-surface-container-lowest border border-outline-variant p-5 flex flex-col gap-4">
+          <!-- 4 View Tabs + Telemetry Header -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-surface-container">
+            <div class="flex flex-wrap items-center gap-1.5" id="eval-tabs-bar">
+              <button type="button" data-eval-tab="slider" onclick="switchEvalTab('slider')" class="eval-tab-btn px-3.5 py-1.5 bg-primary text-white text-[12px] font-semibold transition-all cursor-pointer">
+                Interactive Split-Slider
+              </button>
+              <button type="button" data-eval-tab="heatmap" onclick="switchEvalTab('heatmap')" class="eval-tab-btn px-3.5 py-1.5 bg-white text-secondary hover:text-on-surface border border-outline-variant text-[12px] font-medium transition-all cursor-pointer">
+                Error Heatmap |Δ|
+              </button>
+              <button type="button" data-eval-tab="loupe" onclick="switchEvalTab('loupe')" class="eval-tab-btn px-3.5 py-1.5 bg-white text-secondary hover:text-on-surface border border-outline-variant text-[12px] font-medium transition-all cursor-pointer">
+                Synchronized 4× Loupe
+              </button>
+              <button type="button" data-eval-tab="spectrum" onclick="switchEvalTab('spectrum')" class="eval-tab-btn px-3.5 py-1.5 bg-white text-secondary hover:text-on-surface border border-outline-variant text-[12px] font-medium transition-all cursor-pointer">
+                8×8 DCT Spectrum
+              </button>
+            </div>
+
+            <div class="flex items-center gap-3 text-secondary font-mono text-[11px] tnum">
+              <span class="flex items-center gap-1">
+                <span class="material-symbols-outlined text-[15px] text-primary">grid_4x4</span>
+                <span id="s3-roi-info">ROI: 64×64 px</span>
+              </span>
+              <span class="hidden sm:inline">•</span>
+              <span class="hidden sm:inline" id="s3-shape-info">RES: -- × --</span>
+            </div>
+          </div>
+
+          <!-- TAB 1: SPLIT SLIDER + SIDE HEATMAP CARD -->
+          <div id="eval-pane-slider" class="eval-tab-pane active">
+            <!-- Quick Method Compare Pills -->
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3 bg-surface-container-low p-2 border border-outline-variant/60">
+              <span class="font-mono text-[11px] text-secondary uppercase font-semibold px-1">INSPECT RIGHT LAYER MODEL:</span>
+              <div class="flex flex-wrap items-center gap-1" id="slider-method-pills">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <!-- Left 8 cols: Interactive Dual Image Split Slider -->
+              <div class="lg:col-span-8 flex flex-col gap-2">
+                <div class="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-secondary">
+                  <span id="s3-left-title">Left: Raw Baseline JPEG</span>
+                  <span class="text-primary" id="s3-right-title">Right: Proposed Hybrid (CNN ➔ GNN)</span>
+                </div>
+
+                <!-- Interactive Split Slider Frame -->
+                <div id="split-slider-container" class="relative w-full aspect-[4/3] bg-[#0b0f19] select-none overflow-hidden border border-outline-variant cursor-ew-resize">
+                  <!-- Right / Recovered Image -->
+                  <img id="split-img-right" src="" alt="Restored" class="absolute inset-0 w-full h-full object-contain pointer-events-none" />
+                  <!-- Left / Baseline Image (Clipped via clip-path so object-contain aligns pixel-for-pixel!) -->
+                  <img id="split-img-left" src="" alt="Baseline" class="absolute inset-0 w-full h-full object-contain pointer-events-none" style="clip-path: inset(0 50% 0 0);" />
+
+                  <!-- Labels -->
+                  <div class="absolute top-3 left-3 bg-on-surface/85 text-white px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider pointer-events-none" id="s3-badge-left">
+                    BASELINE JPEG
+                  </div>
+                  <div class="absolute top-3 right-3 bg-primary text-white px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider pointer-events-none" id="s3-badge-right">
+                    PROPOSED CNN➔GNN
+                  </div>
+
+                  <!-- Vertical Divider Line & Drag Handle -->
+                  <div id="split-divider" class="absolute top-0 bottom-0 left-1/2 -ml-px w-0.5 bg-primary pointer-events-none">
+                    <div class="pulse-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 bg-white border-2 border-primary flex items-center justify-center">
+                      <span class="material-symbols-outlined text-primary text-[18px]">drag_handle</span>
+                    </div>
+                  </div>
+
+                  <!-- Bottom Coordinate Pill -->
+                  <div class="absolute bottom-3 left-3 bg-white/90 px-2.5 py-1 font-mono text-[10px] text-on-surface border border-outline-variant pointer-events-none tnum" id="s3-slider-pct">
+                    SPLIT RATIO: 50% | DRAG HANDLE ↔
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right 4 cols: Residual Error Heatmap Companion Panel -->
+              <div class="lg:col-span-4 flex flex-col gap-2">
+                <div class="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-secondary">
+                  <span id="s3-heat-title">Residual Error Heatmap</span>
+                  <span class="font-mono text-primary" id="s3-heat-formula">|I_gt − I_out|</span>
+                </div>
+
+                <div class="relative w-full aspect-[4/3] bg-surface border border-outline-variant overflow-hidden flex flex-col justify-between p-3">
+                  <img id="s3-heatmap-card-img" src="" alt="Residual Heatmap" class="absolute inset-0 w-full h-full object-contain bg-white" />
+
+                  <div class="relative z-10 flex items-center justify-between">
+                    <span class="px-2 py-0.5 bg-white/95 text-on-surface font-mono text-[10px] border border-outline-variant" id="s3-heat-mode-tag">
+                      L1 RESIDUAL FIELD
+                    </span>
+                    <span class="px-2 py-0.5 bg-white/95 text-primary font-mono text-[10px] border border-outline-variant font-bold tnum" id="s3-mae-badge">
+                      Δμ = --
+                    </span>
+                  </div>
+
+                  <div class="relative z-10 bg-white/95 p-2.5 border border-outline-variant flex flex-col gap-1.5">
+                    <div class="flex items-center justify-between font-mono text-[10px]">
+                      <span class="text-secondary">8×8 BLOCK SEAM ATTENUATION</span>
+                      <span class="text-primary font-bold tnum" id="s3-atten-text">--%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-surface-container overflow-hidden">
+                      <div id="s3-atten-bar" class="h-full bg-primary transition-all duration-700 ease-out" style="width: 0%;"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Color Legend Scale -->
+                <div class="flex flex-col gap-1 pt-1">
+                  <div class="flex items-center justify-between font-mono text-[10px] text-secondary">
+                    <span>0.0 (Zero Error)</span>
+                    <span class="text-primary font-semibold">High Divergence</span>
+                  </div>
+                  <div class="w-full h-2.5 border border-outline-variant flex">
+                    <div class="flex-1 bg-white"></div>
+                    <div class="flex-1 bg-[#e0e7ff]"></div>
+                    <div class="flex-1 bg-[#818cf8]"></div>
+                    <div class="flex-1 bg-[#4f46e5]"></div>
+                    <div class="flex-1 bg-[#1e1b4b]"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: HIGH-RES ERROR HEATMAP COMPARISON -->
+          <div id="eval-pane-heatmap" class="eval-tab-pane">
+            <div class="bg-surface p-4 border border-outline-variant text-center">
+              <p class="font-mono text-[11px] text-secondary mb-3 uppercase">
+                Side-by-Side Pixel Error Comparison — Lighter White = Zero Mathematical Error | Deep Indigo = High Artifact Energy
+              </p>
+              <img id="s3-heatmap-full-img" src="" alt="Full Error Heatmap Comparison" class="max-h-[520px] mx-auto border border-outline-variant bg-white" />
+            </div>
+          </div>
+
+          <!-- TAB 3: SYNCHRONIZED 4x LOUPE (ZOOMED PATCHES) -->
+          <div id="eval-pane-loupe" class="eval-tab-pane">
+            <div class="bg-surface p-4 border border-outline-variant text-center">
+              <p class="font-mono text-[11px] text-secondary mb-3 uppercase">
+                Synchronized 4× Nearest-Neighbor Zoom — Proving 8×8 Checkerboard Grid Seams Disappear Without Over-Blurring
+              </p>
+              <img id="s3-loupe-img" src="" alt="Synchronized 4x Loupe" class="max-h-[520px] mx-auto border border-outline-variant bg-white" />
+            </div>
+          </div>
+
+          <!-- TAB 4: 8x8 DCT FREQUENCY SPECTRUM -->
+          <div id="eval-pane-spectrum" class="eval-tab-pane">
+            <div class="bg-surface p-4 border border-outline-variant text-center">
+              <p class="font-mono text-[11px] text-secondary mb-3 uppercase">
+                Log-Magnitude 2D-DCT Spectrum (8×8 ROI Block) — Demonstrating High-Frequency Harmonic Reconstruction &amp; Ground Truth Consistency
+              </p>
+              <img id="s3-spectrum-img" src="" alt="8x8 DCT Spectrum Grid" class="max-h-[520px] mx-auto border border-outline-variant bg-white" />
+            </div>
+          </div>
+
+          <!-- Status Footer inside Card -->
+          <div class="w-full pt-3 border-t border-surface-container flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-secondary font-mono text-[11px]">
+            <div class="flex flex-wrap items-center gap-3">
+              <span class="flex items-center gap-1.5 text-on-surface font-semibold">
+                <span class="w-2 h-2 bg-primary"></span>
+                <span id="s3-footer-time">Reconstruction Converged</span>
+              </span>
+              <span class="hidden sm:inline">•</span>
+              <span id="s3-footer-device">Compute Target: CUDA GPU</span>
+            </div>
+            <div class="flex items-center gap-1 text-primary font-semibold">
+              <span class="material-symbols-outlined text-[15px]">verified</span>
+              <span>HARD SPECTRAL LOCK INTEGRITY VERIFIED</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Quantitative Metric Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <!-- Card 1: PSNR -->
+          <div class="metric-card bg-surface-container-lowest border border-outline-variant p-5 flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-secondary">PSNR (Y-Channel)</span>
+              <span class="font-mono text-[11px] text-secondary">[dB_SCALE]</span>
+            </div>
+            <div>
+              <div class="text-[36px] font-bold text-on-surface tracking-tight leading-none font-mono tnum">
+                <span id="card-psnr-val">--</span> <span class="text-[16px] font-medium text-secondary">dB</span>
+              </div>
+              <div class="inline-flex items-center gap-1 px-2 py-0.5 mt-2 bg-surface-container text-primary font-mono text-[11px] font-semibold tnum" id="card-psnr-gain">
+                <span class="material-symbols-outlined text-[14px]">arrow_upward</span>
+                <span>--</span>
+              </div>
+            </div>
+            <div class="pt-2.5 border-t border-surface-container flex items-center justify-between text-[12px] text-secondary">
+              <span id="card-psnr-base">vs Raw JPEG (--)</span>
+              <span class="font-mono text-on-surface font-semibold" id="card-psnr-pct">FIDELITY</span>
+            </div>
+          </div>
+
+          <!-- Card 2: PSNR-B -->
+          <div class="metric-card bg-surface-container-lowest border border-outline-variant p-5 flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-secondary">PSNR-B (Deblocking)</span>
+              <span class="font-mono text-[11px] text-secondary">[BLOCK_INDEX]</span>
+            </div>
+            <div>
+              <div class="text-[36px] font-bold text-on-surface tracking-tight leading-none font-mono tnum">
+                <span id="card-psnrb-val">--</span> <span class="text-[16px] font-medium text-secondary">dB</span>
+              </div>
+              <div class="inline-flex items-center gap-1 px-2 py-0.5 mt-2 bg-surface-container text-primary font-mono text-[11px] font-semibold tnum" id="card-psnrb-gain">
+                <span class="material-symbols-outlined text-[14px]">grid_goldenratio</span>
+                <span>--</span>
+              </div>
+            </div>
+            <div class="pt-2.5 border-t border-surface-container flex items-center justify-between text-[12px] text-secondary">
+              <span>Boundary Discontinuity Fix</span>
+              <span class="font-mono text-primary font-semibold tnum" id="card-atten-mini">--%</span>
+            </div>
+          </div>
+
+          <!-- Card 3: SSIM -->
+          <div class="metric-card bg-surface-container-lowest border border-outline-variant p-5 flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-secondary">SSIM INDEX</span>
+              <span class="font-mono text-[11px] text-secondary">[NORM_1.0]</span>
+            </div>
+            <div>
+              <div class="text-[36px] font-bold text-on-surface tracking-tight leading-none font-mono tnum">
+                <span id="card-ssim-val">--</span> <span class="text-[16px] font-medium text-secondary">/ 1.0</span>
+              </div>
+              <div class="inline-flex items-center gap-1 px-2 py-0.5 mt-2 bg-surface-container text-primary font-mono text-[11px] font-semibold tnum" id="card-ssim-gain">
+                <span class="material-symbols-outlined text-[14px]">tune</span>
+                <span>--</span>
+              </div>
+            </div>
+            <div class="pt-2.5 border-t border-surface-container flex items-center justify-between text-[12px] text-secondary">
+              <span>Structural Perceptual Index</span>
+              <span class="font-mono text-on-surface font-semibold tnum" id="card-mae-mini">MAE: --</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Speed / Complexity -->
+          <div class="metric-card bg-surface-container-lowest border border-outline-variant p-5 flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-secondary">INFERENCE LATENCY</span>
+              <span class="font-mono text-[11px] text-secondary">[RUNTIME]</span>
+            </div>
+            <div>
+              <div class="text-[36px] font-bold text-on-surface tracking-tight leading-none font-mono tnum">
+                <span id="card-ms-val">--</span> <span class="text-[16px] font-medium text-secondary">ms</span>
+              </div>
+              <div class="inline-flex items-center gap-1 px-2 py-0.5 mt-2 bg-surface-container text-primary font-mono text-[11px] font-semibold tnum" id="card-fps-pill">
+                <span class="material-symbols-outlined text-[14px]">bolt</span>
+                <span>-- FPS Real-Time</span>
+              </div>
+            </div>
+            <div class="pt-2.5 border-t border-surface-container flex items-center justify-between text-[12px] text-secondary">
+              <span>Hardware Execution</span>
+              <span class="font-mono text-on-surface font-semibold" id="card-device-short">CUDA_GPU</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comparative Pipeline Matrix Table (Live from all 5 methods!) -->
+        <div class="w-full bg-surface-container-lowest border border-outline-variant p-6 flex flex-col gap-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-surface-container">
+            <div>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-secondary block">Live Comparative Pipeline Matrix</span>
+              <h3 class="text-[20px] font-semibold text-on-surface">All 5 Architectures Evaluated Live on Uploaded Specimen</h3>
+            </div>
+            <span class="font-mono text-[11px] text-primary bg-surface-container px-2.5 py-1 border border-primary/20" id="s3-run-id-tag">CLICK ANY ROW TO INSPECT IN SLIDER</span>
+          </div>
+
+          <div class="w-full overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-outline-variant text-secondary text-[11px] font-bold uppercase tracking-wider">
+                  <th class="py-3 px-4">Method / Architecture</th>
+                  <th class="py-3 px-4">PSNR (dB)</th>
+                  <th class="py-3 px-4">PSNR-B (Block)</th>
+                  <th class="py-3 px-4">SSIM Index</th>
+                  <th class="py-3 px-4">Seam Attenuation</th>
+                  <th class="py-3 px-4">Latency</th>
+                </tr>
+              </thead>
+              <tbody id="s3-matrix-tbody" class="font-mono text-[13px] divide-y divide-surface-container tnum">
+                <!-- Populated dynamically via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- =============================================================== -->
+    <!-- BENCHMARKS TAB: SCIENTIFIC GALLERY & SET5 / SET14 SCORES        -->
+    <!-- =============================================================== -->
+    <section id="view-benchmarks" class="stage-panel">
+      <div class="w-full max-w-7xl mx-auto px-4 lg:px-6 py-8 flex flex-col gap-8">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-outline-variant pb-4">
+          <div>
+            <span class="font-mono text-[11px] uppercase text-primary font-semibold">[EMPIRICAL VALIDATION] • SET5 &amp; SET14 BENCHMARKS</span>
+            <h1 class="text-[28px] font-semibold text-on-surface tracking-tight mt-1">Benchmark Evaluation Showcase</h1>
+            <p class="text-[14px] text-secondary mt-1">Verified multi-method comparison results across canonical Digital Image Processing datasets.</p>
+          </div>
+          <button type="button" onclick="switchStage(1)" class="px-4 py-2 bg-primary text-white text-[12px] font-bold uppercase tracking-wider cursor-pointer hover:bg-primary-container transition-colors">
+            Test Custom Image →
+          </button>
+        </div>
+
+        <!-- Set5 Highlight Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div class="bg-surface-container-lowest border border-outline-variant p-6">
+            <div class="font-mono text-[11px] text-secondary uppercase">SET5 AVERAGE GAIN (CNN ➔ GNN)</div>
+            <div class="font-mono text-[38px] font-bold text-primary mt-1 tnum">+1.91 dB</div>
+            <p class="text-[13px] text-secondary mt-1">Improves baseline 32.75 dB to <strong class="text-on-surface">34.66 dB</strong> (SSIM: 0.9497)</p>
+          </div>
+          <div class="bg-surface-container-lowest border border-primary p-6 bg-surface-container/40">
+            <div class="font-mono text-[11px] text-primary uppercase font-bold">PEAK SHOWCASE (SET5 BUTTERFLY)</div>
+            <div class="font-mono text-[38px] font-bold text-primary mt-1 tnum">+4.13 dB</div>
+            <p class="text-[13px] text-secondary mt-1">Reconstructs sharp high-contrast wing edges from 26.40 dB to <strong class="text-on-surface">30.53 dB</strong></p>
+          </div>
+          <div class="bg-surface-container-lowest border border-outline-variant p-6">
+            <div class="font-mono text-[11px] text-secondary uppercase">PURE GNN DIAGNOSIS (+0.01 dB)</div>
+            <div class="font-mono text-[38px] font-bold text-on-surface mt-1 tnum">SOLVED</div>
+            <p class="text-[13px] text-secondary mt-1">Dual-domain CNN first eliminates inter-block seams; GNN locks low-freq truth.</p>
+          </div>
+        </div>
+
+        <!-- Set5 Verified Benchmark Table -->
+        <div class="bg-surface-container-lowest border border-outline-variant p-6">
+          <h2 class="text-[18px] font-semibold text-on-surface mb-4">Set5 Full Evaluation Matrix (Cutoff = 15 Frequencies)</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-outline-variant text-secondary text-[11px] font-bold uppercase">
+                  <th class="py-2.5 px-4">Specimen Image</th>
+                  <th class="py-2.5 px-4">Baseline JPEG</th>
+                  <th class="py-2.5 px-4">Pure GNN</th>
+                  <th class="py-2.5 px-4">GNN ➔ CNN</th>
+                  <th class="py-2.5 px-4 text-primary">CNN ➔ GNN (Ours)</th>
+                  <th class="py-2.5 px-4">SSIM</th>
+                </tr>
+              </thead>
+              <tbody id="bench-set5-tbody" class="font-mono text-[13px] divide-y divide-surface-container tnum"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Saved Set14 Visual Comparison Gallery -->
+        <div class="flex flex-col gap-4">
+          <h2 class="text-[20px] font-semibold text-on-surface">Saved 5-Way Visual Comparisons &amp; Error Heatmaps</h2>
+          <div id="bench-gallery-grid" class="grid grid-cols-1 gap-6">
+            <!-- Populated from /api/benchmarks -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== GLOBAL FOOTER ==================== -->
+  <footer class="w-full bg-surface-container-lowest border-t border-outline-variant py-4 mt-10">
+    <div class="w-full px-6 flex flex-col md:flex-row items-center justify-between gap-2 font-mono text-[11px] text-secondary">
+      <div class="flex flex-wrap items-center gap-3 text-center">
+        <span>NEUROLOGICAL SIGNAL &amp; DISCRETE COSINE TRANSFORM RESEARCH LAB</span>
+        <span class="hidden sm:inline">•</span>
+        <span>DUAL-DOMAIN GNN + CNN HYBRID RESTORATION</span>
+      </div>
+      <div>OBJECTIVE FIDELITY STANDARDS [ISO/IEC 10918-1 COMPLIANT]</div>
+    </div>
+  </footer>
+
+  <!-- ==================== PROCESSING TELEMETRY OVERLAY ==================== -->
+  <div id="processing-modal" class="fixed inset-0 z-[100] bg-on-surface/50 backdrop-blur-[2px] hidden items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white border-2 border-on-surface p-6 shadow-none">
+      <div class="flex items-center justify-between border-b border-outline-variant pb-3 mb-4">
+        <span class="font-mono text-[11px] font-bold uppercase text-primary tracking-wider">NEURAL_PIPELINE_EXECUTING</span>
+        <span class="material-symbols-outlined text-primary animate-spin text-[20px]">progress_activity</span>
+      </div>
+      <h3 class="text-[18px] font-semibold text-on-surface mb-4">Running Dual-Domain Restoration...</h3>
+      <div class="flex flex-col gap-2.5 font-mono text-[12px]" id="proc-steps-list">
+        <div class="flex items-center gap-2 text-primary font-semibold"><span>[01]</span><span>2D-DCT Block Slicing &amp; Quantization...</span></div>
+        <div class="flex items-center gap-2 text-secondary"><span>[02]</span><span>Spatial Deblocking CNN Pass...</span></div>
+        <div class="flex items-center gap-2 text-secondary"><span>[03]</span><span>72-Node GNN Harmonic Message Passing...</span></div>
+        <div class="flex items-center gap-2 text-secondary"><span>[04]</span><span>Hard Spectral Lock &amp; 2D-IDCT Synthesis...</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== JUDGE MOBILE QR CODE MODAL ==================== -->
+  <div id="qr-modal" class="fixed inset-0 z-[100] bg-on-surface/60 backdrop-blur-[2px] hidden items-center justify-center p-4" onclick="if(event.target===this) closeQrModal()">
+    <div class="w-full max-w-md bg-white border-2 border-on-surface p-6">
+      <div class="flex items-center justify-between border-b border-outline-variant pb-3 mb-4">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary text-[20px]">qr_code_scanner</span>
+          <span class="font-mono text-[12px] font-bold uppercase text-on-surface">MOBILE JUDGE ACCESS QR</span>
+        </div>
+        <button type="button" onclick="closeQrModal()" class="text-secondary hover:text-on-surface cursor-pointer">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+      <div class="text-center">
+        <p class="text-[13px] text-secondary mb-4">
+          Scan with any smartphone camera to access this NeuroDCT Lab interface live during presentation.
+        </p>
+        <div class="inline-block p-3 bg-white border border-outline-variant mb-4">
+          <img id="qr-code-img" src="/api/qr.png" alt="QR Code" class="w-52 h-52 mx-auto" />
+        </div>
+        <div class="flex flex-col gap-2 text-left">
+          <label class="font-mono text-[10px] font-bold uppercase text-secondary">TARGET URL (EDITABLE FOR CLOUD / NGROK):</label>
+          <div class="flex gap-2">
+            <input id="qr-url-input" type="text" value="" class="flex-1 px-2.5 py-1.5 font-mono text-[12px] border border-outline-variant focus:border-primary focus:outline-none" />
+            <button type="button" onclick="refreshQrImage()" class="px-3 py-1.5 bg-primary text-white font-mono text-[11px] font-semibold cursor-pointer hover:bg-primary-container">UPDATE</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST NOTIFICATION ==================== -->
+  <div id="toast-box" class="fixed bottom-5 right-5 z-[110] hidden bg-on-surface text-white px-4 py-3 border-l-4 border-primary font-mono text-[12px] max-w-sm">
+    <span id="toast-msg"></span>
+  </div>
+
+  <!-- ==================== JAVASCRIPT CONTROLLER ==================== -->
+  <script>
+    // Global App State
+    const appState = {
+      currentStage: 1,
+      mode: "simulation", // 'simulation' or 'enhancement'
+      selectedPreset: "barbara",
+      uploadedFile: null,
+      previewB64: null,
+      sampleName: "Barbara_Set14.png",
+      sampleWidth: 720,
+      sampleHeight: 576,
+      bufferKb: 0,
+      qf: 15,
+      arch: "cnn_gnn",
+      eq6Lock: true,
+      showGrid: true,
+      roiX: null,
+      roiY: null,
+      lastResult: null,
+      activeRightMethod: "cnn_gnn",
+      lanUrl: window.location.origin,
+    };
+
+    // Init App on DOMContentLoaded
+    document.addEventListener("DOMContentLoaded", async () => {
+      initDropzone();
+      initControls();
+      initSplitSlider();
+      await fetchHealthAndPresets();
+      await loadDefaultPreset("barbara");
+      await loadBenchmarksTab();
+    });
+
+    function showToast(msg, duration = 3500) {
+      const box = document.getElementById("toast-box");
+      document.getElementById("toast-msg").textContent = msg;
+      box.classList.remove("hidden");
+      setTimeout(() => box.classList.add("hidden"), duration);
+    }
+
+    // Navigation Stage Switching
+    function switchStage(stageNum) {
+      if ((stageNum === 3) && !appState.lastResult) {
+        showToast("[INFO] Configure parameters and click RUN EVALUATION first.");
+        switchStage(2);
+        return;
+      }
+
+      appState.currentStage = stageNum;
+      document.querySelectorAll(".stage-panel").forEach(p => p.classList.remove("active"));
+      const mapId = { 1: "view-stage-1", 2: "view-stage-2", 3: "view-stage-3", 4: "view-benchmarks" };
+      document.getElementById(mapId[stageNum]).classList.add("active");
+
+      // Update Desktop & Mobile Nav states
+      document.querySelectorAll(".nav-btn").forEach(btn => {
+        btn.classList.toggle("nav-active", parseInt(btn.dataset.stage) === stageNum);
+      });
+      document.querySelectorAll(".mob-nav").forEach(btn => {
+        const active = parseInt(btn.dataset.stageMob) === stageNum;
+        btn.classList.toggle("border-primary", active);
+        btn.classList.toggle("text-primary", active);
+        btn.classList.toggle("bg-white", active);
+        btn.classList.toggle("border-transparent", !active);
+        btn.classList.toggle("text-secondary", !active);
+      });
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    // Fetch Server Health & Presets
+    async function fetchHealthAndPresets() {
+      try {
+        const res = await fetch("/api/health");
+        const data = await res.json();
+        const badge = document.getElementById("sys-device-badge");
+        const hw = data.device.toUpperCase().includes("CUDA") ? "CUDA_RTX_GPU" : "CPU_FALLBACK";
+        badge.textContent = `[SYS_READY : ${hw}]`;
+        document.getElementById("s2-hw-profile").textContent = `${hw}_FP32`;
+        document.getElementById("s2-accel-badge").textContent = data.device.includes("cuda") ? "[CUDA TENSOR CORE ACTIVE]" : "[AVX2 SIMD ACTIVE]";
+        document.getElementById("s3-footer-device").textContent = `Compute Target: ${hw}`;
+        document.getElementById("card-device-short").textContent = hw;
+        appState.lanUrl = data.lan_url || window.location.origin;
+        document.getElementById("qr-url-input").value = appState.lanUrl;
+      } catch (e) {
+        console.error("Health check error:", e);
+      }
+
+      try {
+        const res = await fetch("/api/presets");
+        const data = await res.json();
+        const container = document.getElementById("preset-selector");
+        container.innerHTML = "";
+        data.presets.forEach((p, idx) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.dataset.preset = p.id;
+          const isDef = idx === 0;
+          btn.className = `preset-btn flex flex-col items-center p-2.5 border transition-all cursor-pointer text-center group ${
+            isDef ? "bg-surface-container border-primary text-on-surface" : "bg-surface border-outline-variant text-secondary hover:bg-surface-container-low hover:text-on-surface"
+          }`;
+          btn.innerHTML = `
+            <img src="${p.url}" alt="${p.name}" class="w-full h-16 object-cover mb-2 border border-outline-variant/60 group-hover:scale-[1.02] transition-transform" />
+            <span class="text-[10px] font-bold uppercase ${isDef ? "text-primary" : "text-secondary"}">${isDef ? "[DEFAULT]" : "SPECIMEN"}</span>
+            <span class="font-mono text-[13px] font-semibold text-on-surface">${p.name}</span>
+            <span class="font-mono text-[10px] text-secondary mt-0.5">${p.tag}</span>
+          `;
+          btn.addEventListener("click", () => loadDefaultPreset(p.id));
+          container.appendChild(btn);
+        });
+      } catch (e) {
+        console.error("Preset load error:", e);
+      }
+    }
+
+    async function loadDefaultPreset(presetId) {
+      appState.selectedPreset = presetId;
+      appState.uploadedFile = null;
+      appState.roiX = null;
+      appState.roiY = null;
+
+      // Update button visual states
+      document.querySelectorAll(".preset-btn").forEach(b => {
+        const match = b.dataset.preset === presetId;
+        b.classList.toggle("bg-surface-container", match);
+        b.classList.toggle("border-primary", match);
+        b.classList.toggle("text-on-surface", match);
+        b.classList.toggle("bg-surface", !match);
+        b.classList.toggle("border-outline-variant", !match);
+        b.classList.toggle("text-secondary", !match);
+      });
+
+      const fd = new FormData();
+      fd.append("preset_id", presetId);
+      await fetchPreviewMeta(fd);
+    }
+
+    async function handleFileUpload(file) {
+      appState.uploadedFile = file;
+      appState.selectedPreset = null;
+      appState.roiX = null;
+      appState.roiY = null;
+
+      document.querySelectorAll(".preset-btn").forEach(b => {
+        b.classList.remove("bg-surface-container", "border-primary", "text-on-surface");
+        b.classList.add("bg-surface", "border-outline-variant", "text-secondary");
+      });
+
+      const fd = new FormData();
+      fd.append("file", file);
+      await fetchPreviewMeta(fd);
+    }
+
+    async function fetchPreviewMeta(formData) {
+      try {
+        const res = await fetch("/api/preview_meta", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Preview failed");
+
+        appState.previewB64 = data.preview_b64;
+        appState.sampleName = data.filename;
+        appState.sampleWidth = data.width;
+        appState.sampleHeight = data.height;
+        appState.bufferKb = data.buffer_kb;
+
+        // Update Stage 1 Preview Strip
+        const thumb = document.getElementById("s1-preview-thumb");
+        thumb.src = data.preview_b64;
+        thumb.classList.remove("hidden");
+
+        document.getElementById("selected-summary").innerHTML = `Selected: <span class="font-mono font-semibold text-primary">${data.filename}</span>`;
+        const resizeNote = data.resized ? ` (Auto-scaled from ${data.orig_width}×${data.orig_height})` : "";
+        document.getElementById("selected-dims").textContent = `${data.width}×${data.height} px • ${data.buffer_kb} KB${resizeNote}`;
+
+        // Update Stage 2 Preview
+        syncStage2Preview();
+      } catch (e) {
+        showToast("Error reading image: " + e.message);
+      }
+    }
+
+    function syncStage2Preview() {
+      document.getElementById("s2-topbar-name").textContent = appState.sampleName;
+      document.getElementById("s2-topbar-dims").textContent = `${appState.sampleWidth}×${appState.sampleHeight} px • 8-bit`;
+      document.getElementById("s2-meta-res").textContent = `${appState.sampleWidth} × ${appState.sampleHeight}`;
+      document.getElementById("s2-meta-kb").textContent = `${appState.bufferKb} KB`;
+      if (appState.previewB64) {
+        document.getElementById("s2-preview-img").src = appState.previewB64;
+      }
+      document.getElementById("s2-mode-badge").textContent = appState.mode.toUpperCase();
+    }
+
+    function proceedToConfigure() {
+      syncStage2Preview();
+      switchStage(2);
+    }
+
+    function setOperatingMode(mode) {
+      appState.mode = mode;
+      const isSim = mode === "simulation";
+
+      const simBtn = document.getElementById("mode-btn-sim");
+      const enhBtn = document.getElementById("mode-btn-enh");
+      simBtn.className = `px-3 py-1 font-mono text-[11px] font-semibold uppercase transition-all cursor-pointer ${isSim ? "bg-primary text-white" : "text-secondary hover:text-on-surface"}`;
+      enhBtn.className = `px-3 py-1 font-mono text-[11px] font-semibold uppercase transition-all cursor-pointer ${!isSim ? "bg-primary text-white" : "text-secondary hover:text-on-surface"}`;
+
+      document.getElementById("s1-ingest-tag").textContent = isSim ? "INGEST_STREAM :: SIMULATION_EVAL_MODE" : "INGEST_STREAM :: BLIND_ENHANCEMENT_MODE";
+      document.getElementById("mode-desc-banner").textContent = isSim
+        ? "[SIMULATION MODE]: Treats your image as Clean Ground Truth, applies JPEG truncation at your chosen QF, restores it, and computes exact PSNR / PSNR-B / SSIM & Error Heatmaps."
+        : "[ENHANCEMENT MODE]: Assumes your image is ALREADY a compressed JPEG. Directly removes 8×8 blocking artifacts without re-compressing, and renders a Correction Map showing removed seams.";
+    }
+
+    function initDropzone() {
+      const fileInput = document.getElementById("file-upload");
+      const dropzone = document.getElementById("dropzone");
+
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files && e.target.files[0]) {
+          handleFileUpload(e.target.files[0]);
+        }
+      });
+
+      ["dragenter", "dragover"].forEach(ev => {
+        dropzone.addEventListener(ev, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.add("drag-active", "bg-surface-container-low", "border-primary");
+        });
+      });
+
+      ["dragleave", "drop"].forEach(ev => {
+        dropzone.addEventListener(ev, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.remove("drag-active", "bg-surface-container-low", "border-primary");
+        });
+      });
+
+      dropzone.addEventListener("drop", (e) => {
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) handleFileUpload(files[0]);
+      });
+    }
+
+    // Stage 2 Controls & Interactive Reticle
+    function initControls() {
+      const qfSlider = document.getElementById("qf-slider");
+      qfSlider.addEventListener("input", (e) => {
+        const qf = parseInt(e.target.value);
+        appState.qf = qf;
+        const cutoff = qf <= 20 ? qf : Math.round(20 + (qf - 20) * (36 / 60));
+        document.getElementById("qf-value-display").textContent = `QF: ${qf} (Cutoff ${cutoff}/64)`;
+        document.getElementById("qf-kept-count").textContent = cutoff;
+        document.getElementById("qf-zero-count").textContent = 64 - cutoff;
+
+        const badge = document.getElementById("qf-severity-badge");
+        if (qf <= 15) badge.textContent = "SEVERE BLOCKING & RINGING";
+        else if (qf <= 35) badge.textContent = "MODERATE QUANTIZATION LOSS";
+        else badge.textContent = "MILD COMPRESSION ARTIFACTS";
+      });
+
+      document.querySelectorAll('input[name="pipeline_arch"]').forEach(radio => {
+        radio.addEventListener("change", (e) => {
+          appState.arch = e.target.value;
+          document.querySelectorAll(".arch-card").forEach(c => {
+            c.classList.remove("selected");
+            c.classList.add("bg-surface-container-lowest");
+          });
+          const card = e.target.closest(".arch-card");
+          card.classList.add("selected");
+          card.classList.remove("bg-surface-container-lowest");
+        });
+      });
+    }
+
+    function toggleDctGridOverlay() {
+      appState.showGrid = !appState.showGrid;
+      const grid = document.getElementById("s2-dct-grid");
+      const btn = document.getElementById("toggle-grid-btn");
+      grid.style.opacity = appState.showGrid ? "1" : "0";
+      btn.textContent = `8×8 GRID: ${appState.showGrid ? "ON" : "OFF"}`;
+    }
+
+    function toggleEq6() {
+      appState.eq6Lock = !appState.eq6Lock;
+      const btn = document.getElementById("eq6-toggle");
+      const thumb = document.getElementById("eq6-thumb");
+      btn.setAttribute("aria-checked", appState.eq6Lock.toString());
+      if (appState.eq6Lock) {
+        btn.classList.replace("bg-outline-variant", "bg-primary");
+        thumb.classList.replace("translate-x-0", "translate-x-5");
+      } else {
+        btn.classList.replace("bg-primary", "bg-outline-variant");
+        thumb.classList.replace("translate-x-5", "translate-x-0");
+      }
+    }
+
+    function moveRoiFromClick(event) {
+      const wrap = document.getElementById("s2-canvas-wrap");
+      const rect = wrap.getBoundingClientRect();
+      const relX = (event.clientX - rect.left) / rect.width;
+      const relY = (event.clientY - rect.top) / rect.height;
+
+      const xPx = Math.max(0, Math.min(appState.sampleWidth - 64, Math.round(relX * appState.sampleWidth - 32)));
+      const yPx = Math.max(0, Math.min(appState.sampleHeight - 64, Math.round(relY * appState.sampleHeight - 32)));
+      appState.roiX = xPx;
+      appState.roiY = yPx;
+
+      const reticle = document.getElementById("s2-reticle");
+      const pctX = Math.max(8, Math.min(92, relX * 100));
+      const pctY = Math.max(8, Math.min(92, relY * 100));
+      reticle.style.left = `calc(${pctX}% - 32px)`;
+      reticle.style.top = `calc(${pctY}% - 32px)`;
+      document.getElementById("s2-roi-badge").textContent = `ROI: [X:${xPx}, Y:${yPx}, W:64, H:64]`;
+    }
+
+    // Run Full 5-Model Evaluation Pipeline
+    async function runEvaluationPipeline() {
+      const modal = document.getElementById("processing-modal");
+      const stepNodes = document.querySelectorAll("#proc-steps-list > div");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+
+      // Animated telemetry steps while request executes
+      let stepIdx = 0;
+      const stepTimer = setInterval(() => {
+        stepNodes.forEach((n, i) => {
+          n.classList.toggle("text-primary", i === stepIdx);
+          n.classList.toggle("font-semibold", i === stepIdx);
+          n.classList.toggle("text-secondary", i !== stepIdx);
+        });
+        stepIdx = (stepIdx + 1) % stepNodes.length;
+      }, 280);
+
+      try {
+        const fd = new FormData();
+        if (appState.uploadedFile) fd.append("file", appState.uploadedFile);
+        else fd.append("preset_id", appState.selectedPreset || "barbara");
+
+        fd.append("qf", appState.qf);
+        fd.append("arch", appState.arch);
+        fd.append("eq6_lock", appState.eq6Lock);
+        fd.append("mode", appState.mode);
+        if (appState.roiX !== null) fd.append("roi_x", appState.roiX);
+        if (appState.roiY !== null) fd.append("roi_y", appState.roiY);
+
+        const res = await fetch("/api/evaluate", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Evaluation failed");
+
+        appState.lastResult = data;
+        appState.activeRightMethod = data.selected_arch;
+        renderEvaluationResults(data);
+
+        clearInterval(stepTimer);
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+        switchStage(3);
+      } catch (err) {
+        clearInterval(stepTimer);
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+        showToast("Evaluation error: " + err.message);
+      }
+    }
+
+    // Render Results on Stage 3
+    function renderEvaluationResults(data) {
+      const sel = data.selected;
+      const base = data.baseline;
+      const isBlind = data.is_blind;
+
+      document.getElementById("s3-active-pill").textContent = `${data.sample_name} • QF:${data.qf} (${data.cutoff}/64) • ${sel.label}`;
+      document.getElementById("s3-roi-info").textContent = `ROI: [X:${data.roi.x}, Y:${data.roi.y}, 64×64]`;
+      document.getElementById("s3-shape-info").textContent = `RES: ${data.shape[0]}×${data.shape[1]} px`;
+      document.getElementById("header-latency-badge").textContent = `${sel.key.toUpperCase()}: ${sel.latency_ms}ms`;
+      document.getElementById("s3-footer-time").textContent = `5-Model Pipeline Converged (${data.total_time_ms} ms total)`;
+
+      // Populate Method Selector Pills above Split Slider
+      const pillsWrap = document.getElementById("slider-method-pills");
+      pillsWrap.innerHTML = "";
+      const pillLabels = {
+        gnn_only: "GNN ONLY",
+        cnn_only: "CNN ONLY",
+        gnn_cnn:  "GNN ➔ CNN",
+        cnn_gnn:  "★ CNN ➔ GNN",
+      };
+      data.methods.filter(m => m.key !== "baseline").forEach(m => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.dataset.methodKey = m.key;
+        const active = m.key === data.selected_arch;
+        b.className = `px-2.5 py-1 font-mono text-[10px] font-semibold uppercase border transition-all cursor-pointer ${
+          active ? "bg-primary text-white border-primary" : "bg-white text-secondary border-outline-variant hover:text-on-surface"
+        }`;
+        b.textContent = pillLabels[m.key] || m.label;
+        b.onclick = () => selectComparisonMethod(m.key);
+        pillsWrap.appendChild(b);
+      });
+
+      // Set Visual Layers
+      document.getElementById("split-img-left").src = data.baseline_b64;
+      document.getElementById("split-img-right").src = sel.image_b64;
+      document.getElementById("s3-badge-left").textContent = isBlind ? "INPUT JPEG" : `BASELINE (CUTOFF=${data.cutoff})`;
+      document.getElementById("s3-badge-right").textContent = sel.label.toUpperCase();
+      document.getElementById("s3-left-title").textContent = isBlind ? "Left: Uploaded Compressed JPEG" : `Left: Baseline JPEG (Cutoff=${data.cutoff})`;
+      document.getElementById("s3-right-title").textContent = `Right: ${sel.label}`;
+
+      // Heatmaps, Loupe & Spectrum
+      document.getElementById("s3-heatmap-card-img").src = data.visuals.heatmap_card_b64;
+      document.getElementById("s3-heatmap-full-img").src = data.visuals.heatmap_full_b64;
+      document.getElementById("s3-loupe-img").src = data.visuals.loupe_b64;
+      document.getElementById("s3-spectrum-img").src = data.visuals.spectrum_b64;
+
+      document.getElementById("s3-heat-title").textContent = isBlind ? "Correction Difference Map" : "Residual Error Heatmap";
+      document.getElementById("s3-heat-formula").textContent = isBlind ? "|I_out − I_in|" : "|I_gt − I_out|";
+      document.getElementById("s3-mae-badge").textContent = `Δμ = ${sel.mae.toFixed(4)}`;
+
+      // Update Cards & Metrics
+      updateCardsAndTable(data, sel, base);
+    }
+
+    function selectComparisonMethod(methodKey) {
+      const data = appState.lastResult;
+      if (!data) return;
+      const methodObj = data.methods.find(m => m.key === methodKey);
+      if (!methodObj) return;
+
+      appState.activeRightMethod = methodKey;
+      document.getElementById("split-img-right").src = methodObj.image_b64;
+      document.getElementById("s3-right-title").textContent = `Right: ${methodObj.label}`;
+      document.getElementById("s3-badge-right").textContent = methodObj.label.toUpperCase();
+      document.getElementById("s3-mae-badge").textContent = `Δμ = ${methodObj.mae.toFixed(4)}`;
+      document.getElementById("s3-active-pill").textContent = `${data.sample_name} • QF:${data.qf} (${data.cutoff}/64) • ${methodObj.label}`;
+
+      document.querySelectorAll("#slider-method-pills > button").forEach(btn => {
+        const act = btn.dataset.methodKey === methodKey;
+        btn.className = `px-2.5 py-1 font-mono text-[10px] font-semibold uppercase border transition-all cursor-pointer ${
+          act ? "bg-primary text-white border-primary" : "bg-white text-secondary border-outline-variant hover:text-on-surface"
+        }`;
+      });
+
+      updateCardsAndTable(data, methodObj, data.baseline);
+    }
+
+    function animateValue(el, start, end, decimals, duration = 450) {
+      const t0 = performance.now();
+      function frame(now) {
+        const p = Math.min(1, (now - t0) / duration);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const cur = start + (end - start) * eased;
+        el.textContent = cur.toFixed(decimals);
+        if (p < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function updateCardsAndTable(data, sel, base) {
+      const isBlind = data.is_blind;
+
+      // Attenuation Progress Bar
+      document.getElementById("s3-atten-text").textContent = `-${sel.attenuation_pct.toFixed(1)}%`;
+      document.getElementById("s3-atten-bar").style.width = `${sel.attenuation_pct}%`;
+      document.getElementById("card-atten-mini").textContent = `-${sel.attenuation_pct.toFixed(1)}%`;
+      document.getElementById("card-mae-mini").textContent = `MAE: ${sel.mae.toFixed(4)}`;
+
+      if (isBlind) {
+        document.getElementById("card-psnr-val").textContent = "N/A";
+        document.getElementById("card-psnr-gain").innerHTML = `<span>BLIND MODE</span>`;
+        document.getElementById("card-psnr-base").textContent = "No uncompressed GT";
+
+        document.getElementById("card-psnrb-val").textContent = `-${sel.attenuation_pct.toFixed(1)}`;
+        document.getElementById("card-psnrb-gain").innerHTML = `<span>SEAM REDUCTION %</span>`;
+
+        document.getElementById("card-ssim-val").textContent = "ENH";
+        document.getElementById("card-ssim-gain").innerHTML = `<span>BLIND RESTORE</span>`;
+      } else {
+        animateValue(document.getElementById("card-psnr-val"), 0, sel.psnr, 2);
+        const signP = sel.psnr_gain >= 0 ? "+" : "";
+        document.getElementById("card-psnr-gain").innerHTML = `<span class="material-symbols-outlined text-[14px]">arrow_upward</span><span>${signP}${sel.psnr_gain.toFixed(2)} dB vs Raw JPEG</span>`;
+        document.getElementById("card-psnr-base").textContent = `vs Raw JPEG (${base.psnr.toFixed(2)} dB)`;
+
+        animateValue(document.getElementById("card-psnrb-val"), 0, sel.psnr_b, 2);
+        const signB = sel.psnrb_gain >= 0 ? "+" : "";
+        document.getElementById("card-psnrb-gain").innerHTML = `<span class="material-symbols-outlined text-[14px]">grid_goldenratio</span><span>${signB}${sel.psnrb_gain.toFixed(2)} dB Grid Gain</span>`;
+
+        animateValue(document.getElementById("card-ssim-val"), 0, sel.ssim, 4);
+        const signS = sel.ssim_gain >= 0 ? "+" : "";
+        document.getElementById("card-ssim-gain").innerHTML = `<span class="material-symbols-outlined text-[14px]">tune</span><span>${signS}${sel.ssim_gain.toFixed(4)} Fidelity</span>`;
+      }
+
+      animateValue(document.getElementById("card-ms-val"), 0, sel.latency_ms, 1);
+      document.getElementById("card-fps-pill").innerHTML = `<span class="material-symbols-outlined text-[14px]">bolt</span><span>${sel.fps} FPS Real-Time</span>`;
+
+      // Populate Comparative Table
+      const tbody = document.getElementById("s3-matrix-tbody");
+      tbody.innerHTML = "";
+      data.methods.forEach(m => {
+        const isSelected = m.key === sel.key;
+        const isProposed = m.key === "cnn_gnn";
+        const tr = document.createElement("tr");
+        tr.className = `cursor-pointer transition-colors ${isSelected ? "bg-surface-container text-primary font-semibold" : "hover:bg-surface-container-low"}`;
+        tr.onclick = () => selectComparisonMethod(m.key);
+
+        const psnrCol = isBlind ? "N/A (Blind)" : `${m.psnr.toFixed(2)} dB (${m.psnr_gain >= 0 ? "+" : ""}${m.psnr_gain.toFixed(2)})`;
+        const psnrbCol = isBlind ? "N/A" : `${m.psnr_b.toFixed(2)} dB (${m.psnrb_gain >= 0 ? "+" : ""}${m.psnrb_gain.toFixed(2)})`;
+        const ssimCol = isBlind ? "—" : m.ssim.toFixed(4);
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 flex items-center gap-2">
+            ${isProposed ? '<span class="w-2 h-2 bg-primary"></span>' : '<span class="w-2 h-2 bg-outline-variant"></span>'}
+            <span>${m.label}</span>
+            ${isProposed ? '<span class="text-[9px] bg-primary text-white px-1.5 py-0.5 ml-1">BEST</span>' : ''}
+          </td>
+          <td class="py-3 px-4">${psnrCol}</td>
+          <td class="py-3 px-4">${psnrbCol}</td>
+          <td class="py-3 px-4">${ssimCol}</td>
+          <td class="py-3 px-4">-${m.attenuation_pct.toFixed(1)}%</td>
+          <td class="py-3 px-4">${m.latency_ms.toFixed(1)} ms</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Eval View Tabs (Slider / Heatmap / Loupe / Spectrum)
+    function switchEvalTab(tabKey) {
+      document.querySelectorAll(".eval-tab-pane").forEach(p => p.classList.remove("active"));
+      document.getElementById(`eval-pane-${tabKey}`).classList.add("active");
+
+      document.querySelectorAll(".eval-tab-btn").forEach(btn => {
+        const act = btn.dataset.evalTab === tabKey;
+        btn.className = `eval-tab-btn px-3.5 py-1.5 text-[12px] transition-all cursor-pointer ${
+          act ? "bg-primary text-white font-semibold" : "bg-white text-secondary hover:text-on-surface border border-outline-variant font-medium"
+        }`;
+      });
+    }
+
+    // Interactive Split Slider Mouse & Touch
+    function initSplitSlider() {
+      const container = document.getElementById("split-slider-container");
+      const leftImg = document.getElementById("split-img-left");
+      const divider = document.getElementById("split-divider");
+      const pctBadge = document.getElementById("s3-slider-pct");
+
+      let dragging = false;
+      function update(clientX) {
+        const rect = container.getBoundingClientRect();
+        let x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+        const pct = (x / rect.width) * 100;
+        leftImg.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+        divider.style.left = `${pct}%`;
+        pctBadge.textContent = `SPLIT RATIO: ${Math.round(pct)}% | DRAG HANDLE ↔`;
+      }
+
+      container.addEventListener("mousedown", (e) => { dragging = true; update(e.clientX); });
+      window.addEventListener("mousemove", (e) => { if (dragging) update(e.clientX); });
+      window.addEventListener("mouseup", () => { dragging = false; });
+
+      container.addEventListener("touchstart", (e) => {
+        dragging = true;
+        if (e.touches[0]) update(e.touches[0].clientX);
+      }, { passive: true });
+      window.addEventListener("touchmove", (e) => {
+        if (dragging && e.touches[0]) update(e.touches[0].clientX);
+      }, { passive: true });
+      window.addEventListener("touchend", () => { dragging = false; });
+    }
+
+    // Export Buttons
+    function downloadJson() {
+      if (!appState.lastResult) return;
+      window.location.href = `/api/export/${appState.lastResult.run_id}/json`;
+    }
+
+    function downloadPng() {
+      if (!appState.lastResult) return;
+      window.location.href = `/api/export/${appState.lastResult.run_id}/png?arch=${appState.activeRightMethod}`;
+    }
+
+    // Load Benchmarks Showcase Tab
+    async function loadBenchmarksTab() {
+      try {
+        const res = await fetch("/api/benchmarks");
+        const data = await res.json();
+
+        const tbody = document.getElementById("bench-set5-tbody");
+        tbody.innerHTML = "";
+        data.set5_rows.forEach(r => {
+          tbody.innerHTML += `
+            <tr class="hover:bg-surface-container-low">
+              <td class="py-2.5 px-4 font-semibold text-on-surface">${r.image}</td>
+              <td class="py-2.5 px-4">${r.base.toFixed(2)} dB</td>
+              <td class="py-2.5 px-4">${r.gnn.toFixed(2)} dB</td>
+              <td class="py-2.5 px-4">${r.gnn_cnn.toFixed(2)} dB</td>
+              <td class="py-2.5 px-4 text-primary font-bold">${r.cnn_gnn.toFixed(2)} dB (${r.gain})</td>
+              <td class="py-2.5 px-4">${r.ssim.toFixed(4)}</td>
+            </tr>
+          `;
+        });
+        const avg = data.set5_avg;
+        tbody.innerHTML += `
+          <tr class="bg-surface-container font-bold text-primary">
+            <td class="py-3 px-4">SET5 AVERAGE</td>
+            <td class="py-3 px-4">${avg.base.toFixed(2)} dB</td>
+            <td class="py-3 px-4">${avg.gnn.toFixed(2)} dB</td>
+            <td class="py-3 px-4">${avg.gnn_cnn.toFixed(2)} dB</td>
+            <td class="py-3 px-4">${avg.cnn_gnn.toFixed(2)} dB (${avg.gain})</td>
+            <td class="py-3 px-4">${avg.ssim.toFixed(4)}</td>
+          </tr>
+        `;
+
+        const gal = document.getElementById("bench-gallery-grid");
+        gal.innerHTML = "";
+        data.set14_gallery.forEach(item => {
+          gal.innerHTML += `
+            <div class="bg-surface-container-lowest border border-outline-variant p-4 flex flex-col gap-3">
+              <div class="font-mono text-[12px] font-bold text-on-surface uppercase">${item.id}</div>
+              <img src="${item.comparison_url}" alt="${item.id}" class="w-full border border-outline-variant/60" loading="lazy" />
+              ${item.heatmap_url ? `<img src="${item.heatmap_url}" alt="${item.id} heatmap" class="w-full border border-outline-variant/60" loading="lazy" />` : ""}
+            </div>
+          `;
+        });
+      } catch (e) {
+        console.error("Failed loading benchmarks:", e);
+      }
+    }
+
+    // QR Code Modal Controls
+    function openQrModal() {
+      const m = document.getElementById("qr-modal");
+      m.classList.remove("hidden");
+      m.classList.add("flex");
+      refreshQrImage();
+    }
+    function closeQrModal() {
+      const m = document.getElementById("qr-modal");
+      m.classList.add("hidden");
+      m.classList.remove("flex");
+    }
+    function refreshQrImage() {
+      const val = encodeURIComponent(document.getElementById("qr-url-input").value.trim() || window.location.origin);
+      document.getElementById("qr-code-img").src = `/api/qr.png?url=${val}&t=${Date.now()}`;
+    }
+  </script>
+</body>
+</html>

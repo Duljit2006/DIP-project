@@ -23,6 +23,19 @@ env/
 Thumbs.db
 
 # Large datasets archive/temp
+*.tar
 *.tar.gz
 *.tgz
 *.zip
+data/
+
+# Office temporary lock files & generated presentation binary (run scripts/build_presentation.py to rebuild)
+~$*
+*.pptx
+
+# Raw Stitch export folder (superseded by integrated web/index.html)
+stitch_neurodct_artifact_reduction_lab/
+
+# Logs & caches
+*.log
+.cache/

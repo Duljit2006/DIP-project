@@ -8,3 +8,9 @@ scikit-image
 
 # Graph Neural Networks (PyTorch Geometric)
 torch_geometric
+
+# Web Interface & Deployment
+fastapi
+uvicorn[standard]
+python-multipart
+qrcode
