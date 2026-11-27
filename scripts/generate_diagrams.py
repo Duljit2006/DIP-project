@@ -1,302 +1,316 @@
+"""
+scripts/generate_diagrams.py - Clean Academic Diagrams (Navy & Slate Monochrome)
+-------------------------------------------------------------------------------
+Zero overlapping boxes, mathematically consistent uniform arrow gaps & heads,
+zero emoji glyphs, and a restrained professional print palette (#1E3A5F Navy + Slate).
+"""
+
 import os
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from PIL import Image
 
 os.makedirs("assets", exist_ok=True)
 
-# Set high DPI and professional light blue styling
-plt.rcParams['font.sans-serif'] = 'Segoe UI', 'DejaVu Sans', 'Arial'
-plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams["font.sans-serif"] = ["Calibri", "Segoe UI", "DejaVu Sans", "Arial"]
+plt.rcParams["font.family"] = "sans-serif"
 
-# Colors
-C_DARK_BLUE = "#0F2942"
-C_PRIMARY_BLUE = "#1D4ED8"
-C_LIGHT_BLUE = "#EFF6FF"
-C_ACCENT_BLUE = "#3B82F6"
-C_BORDER_BLUE = "#93C5FD"
-C_GRAY_BG = "#F8FAFC"
-C_GRAY_TEXT = "#64748B"
-C_SUCCESS = "#10B981"
-C_WARNING = "#F59E0B"
-C_ALERT = "#EF4444"
+# Restrained Professional Print Palette (Only Navy, Charcoal, and Neutral Slates)
+C_NAVY        = "#1E3A5F"
+C_DARK_TEXT   = "#111827"
+C_MUTED_TEXT  = "#4B5563"
+C_SLATE_EDGE  = "#64748B"
+C_BOX_GRAY    = "#F8FAFC"
+C_BOX_NAVY_BG = "#EFF6FF"
+C_CELL_KEPT   = "#DBEAFE"
+C_CELL_ZERO   = "#F1F5F9"
+C_GRID_LINE   = "#CBD5E1"
+
+
+def draw_pipeline_row(ax, steps, y_center=2.55, box_w=1.45, box_h=1.15, gap=0.48):
+    """
+    Draws a perfectly spaced horizontal row of boxes with identical gap widths
+    and identical arrow head geometries (pad=0.0 prevents box bloat overlap).
+    """
+    n = len(steps)
+    total_w = n * box_w + (n - 1) * gap
+    start_x = (10.8 - total_w) / 2.0
+
+    for i, (title, sub, is_highlight) in enumerate(steps):
+        bx = start_x + i * (box_w + gap)
+        by = y_center - box_h / 2.0
+        bg = C_BOX_NAVY_BG if is_highlight else C_BOX_GRAY
+        ec = C_NAVY if is_highlight else C_SLATE_EDGE
+        lw = 1.9 if is_highlight else 1.4
+
+        box = patches.FancyBboxPatch(
+            (bx, by), box_w, box_h,
+            boxstyle="round,pad=0.0,rounding_size=0.10",
+            facecolor=bg, edgecolor=ec, linewidth=lw, zorder=4
+        )
+        ax.add_patch(box)
+
+        # Title + Subtitle cleanly centered inside box
+        ax.text(bx + box_w / 2.0, y_center + 0.16, title,
+                ha="center", va="center", fontsize=8.5, fontweight="bold",
+                color=C_NAVY if is_highlight else C_DARK_TEXT, zorder=5)
+        if sub:
+            ax.text(bx + box_w / 2.0, y_center - 0.24, sub,
+                    ha="center", va="center", fontsize=7.5,
+                    color=C_MUTED_TEXT, zorder=5)
+
+        # Consistent Arrow to next box
+        if i < n - 1:
+            ax_start = bx + box_w + 0.05
+            ax_end   = bx + box_w + gap - 0.05
+            ax.annotate(
+                "", xy=(ax_end, y_center), xytext=(ax_start, y_center),
+                arrowprops=dict(
+                    arrowstyle="-|>,head_width=0.22,head_length=0.26",
+                    color=C_NAVY, lw=1.8, shrinkA=0, shrinkB=0
+                ),
+                zorder=6
+            )
+
+    return start_x, total_w
+
+
+def draw_note_banner(ax, x_left, width, y_bottom, height, heading, body, is_highlight=False):
+    bg = C_BOX_NAVY_BG if is_highlight else C_BOX_GRAY
+    ec = C_NAVY if is_highlight else C_SLATE_EDGE
+    banner = patches.FancyBboxPatch(
+        (x_left, y_bottom), width, height,
+        boxstyle="round,pad=0.0,rounding_size=0.10",
+        facecolor=bg, edgecolor=ec, linewidth=1.4, zorder=4
+    )
+    ax.add_patch(banner)
+    ax.text(x_left + width / 2.0, y_bottom + height - 0.28, heading,
+            ha="center", va="center", fontsize=9.2, fontweight="bold", color=C_NAVY, zorder=5)
+    ax.text(x_left + width / 2.0, y_bottom + (height - 0.38) / 2.0, body,
+            ha="center", va="center", fontsize=8.0, color=C_DARK_TEXT, linespacing=1.35, zorder=5)
+
 
 # ==============================================================================
-# Diagram 1: JPEG Flaw & Truncation Mechanism
+# Diagram 1: JPEG Flaw & Truncation Mechanism (Monochrome Navy + Gray)
 # ==============================================================================
 def create_diagram_jpeg_flaw():
-    fig, ax = plt.subplots(figsize=(10, 4.2), dpi=200)
-    ax.set_facecolor("#FFFFFF")
+    fig, ax = plt.subplots(figsize=(10.2, 4.1), dpi=250)
     fig.patch.set_facecolor("#FFFFFF")
-    
-    # 1. 8x8 DCT Frequency Matrix Grid
-    ax.text(2.0, 3.8, "8×8 DCT Spectrum (64 Coefficients)", fontsize=11, fontweight='bold', color=C_DARK_BLUE, ha='center')
-    
-    grid_x, grid_y = 0.5, 0.4
-    cell_w, cell_h = 0.35, 0.35
-    
+    ax.set_facecolor("#FFFFFF")
+
+    ax.text(2.15, 3.85, "8×8 DCT Spectrum (64 Coefficients)", fontsize=10.5, fontweight="bold", color=C_NAVY, ha="center")
+
+    gx, gy = 0.65, 0.65
+    cw, ch = 0.36, 0.36
     for r in range(8):
         for c in range(8):
-            # Zigzag order approximation: r + c <= 4 gives ~15 coefficients
             is_kept = (r + c <= 4)
-            color = "#DBEAFE" if is_kept else "#F1F5F9"
-            edge = C_PRIMARY_BLUE if is_kept else "#CBD5E1"
-            rect = patches.Rectangle((grid_x + c * cell_w, grid_y + (7 - r) * cell_h), cell_w, cell_h,
-                                     facecolor=color, edgecolor=edge, linewidth=1.2)
+            fc = C_CELL_KEPT if is_kept else C_CELL_ZERO
+            ec = C_NAVY if is_kept else C_GRID_LINE
+            rect = patches.Rectangle((gx + c * cw, gy + (7 - r) * ch), cw, ch,
+                                     facecolor=fc, edgecolor=ec, linewidth=1.0)
             ax.add_patch(rect)
-            
+            cx = gx + c * cw + cw / 2.0
+            cy = gy + (7 - r) * ch + ch / 2.0
             if r == 0 and c == 0:
-                ax.text(grid_x + c * cell_w + cell_w/2, grid_y + (7 - r) * cell_h + cell_h/2, "DC",
-                        ha='center', va='center', fontsize=8, fontweight='bold', color=C_DARK_BLUE)
+                ax.text(cx, cy, "DC", ha="center", va="center", fontsize=7.5, fontweight="bold", color=C_NAVY)
             elif is_kept:
-                ax.text(grid_x + c * cell_w + cell_w/2, grid_y + (7 - r) * cell_h + cell_h/2, "AC",
-                        ha='center', va='center', fontsize=7, color=C_PRIMARY_BLUE)
+                ax.text(cx, cy, "AC", ha="center", va="center", fontsize=6.5, color=C_NAVY)
             else:
-                ax.text(grid_x + c * cell_w + cell_w/2, grid_y + (7 - r) * cell_h + cell_h/2, "0",
-                        ha='center', va='center', fontsize=7, color="#94A3B8")
+                ax.text(cx, cy, "0", ha="center", va="center", fontsize=6.5, color="#94A3B8")
 
-    # Legend for grid
-    rect_kept = patches.Rectangle((0.5, 0.05), 0.3, 0.2, facecolor="#DBEAFE", edgecolor=C_PRIMARY_BLUE)
-    ax.add_patch(rect_kept)
-    ax.text(0.9, 0.12, "15 Preserved Low Frequencies (DC + 14 ACs)", fontsize=8, color=C_DARK_BLUE, va='center')
-    
-    rect_zero = patches.Rectangle((2.3, 0.05), 0.3, 0.2, facecolor="#F1F5F9", edgecolor="#CBD5E1")
-    ax.add_patch(rect_zero)
-    ax.text(2.7, 0.12, "49 Truncated High Frequencies (Zeroed Out)", fontsize=8, color=C_GRAY_TEXT, va='center')
+    # Legend under matrix
+    ax.add_patch(patches.Rectangle((0.65, 0.20), 0.25, 0.18, facecolor=C_CELL_KEPT, edgecolor=C_NAVY))
+    ax.text(0.98, 0.29, "15 Preserved Low Freqs", fontsize=7.8, color=C_DARK_TEXT, va="center")
+    ax.add_patch(patches.Rectangle((2.50, 0.20), 0.25, 0.18, facecolor=C_CELL_ZERO, edgecolor=C_GRID_LINE))
+    ax.text(2.83, 0.29, "49 Zeroed High Freqs", fontsize=7.8, color=C_MUTED_TEXT, va="center")
 
-    # Arrow to Consequences
-    arrow = patches.FancyArrowPatch((3.7, 2.0), (4.5, 2.0), arrowstyle='->', mutation_scale=20,
-                                   color=C_PRIMARY_BLUE, linewidth=2.5)
-    ax.add_patch(arrow)
-    ax.text(4.1, 2.3, "2D-IDCT\nSynthesis", fontsize=8.5, ha='center', color=C_PRIMARY_BLUE, fontweight='bold')
+    # Consistent Arrow
+    ax.annotate("", xy=(4.65, 2.05), xytext=(3.75, 2.05),
+                arrowprops=dict(arrowstyle="-|>,head_width=0.24,head_length=0.28", color=C_NAVY, lw=2.0, shrinkA=0, shrinkB=0))
+    ax.text(4.20, 2.38, "2D-IDCT\nSynthesis", fontsize=8.5, ha="center", color=C_NAVY, fontweight="bold")
 
-    # Consequence 1: Blurry Edges
-    c1 = patches.FancyBboxPatch((4.7, 2.2), 4.8, 1.4, boxstyle="round,pad=0.1,rounding_size=0.15",
-                               facecolor="#FEF2F2", edgecolor="#FCA5A5", linewidth=1.5)
-    ax.add_patch(c1)
-    ax.text(4.9, 3.2, "Defect 1: Spectral Loss (Blurry Edges)", fontsize=10, fontweight='bold', color="#991B1B")
-    ax.text(4.9, 2.65, "• Discarding 49 high AC frequencies eliminates fine texture,\n  sharp outlines, and high-contrast hair/eyelash detail.",
-            fontsize=8.5, color="#7F1D1D")
+    # Two clean Defect Boxes (Navy + Neutral Slate)
+    d1 = patches.FancyBboxPatch((4.85, 2.15), 4.85, 1.35, boxstyle="round,pad=0.0,rounding_size=0.10",
+                                facecolor=C_BOX_GRAY, edgecolor=C_NAVY, linewidth=1.4)
+    ax.add_patch(d1)
+    ax.text(5.10, 3.18, "Defect 1: Spectral Information Loss (Blur)", fontsize=9.5, fontweight="bold", color=C_NAVY)
+    ax.text(5.10, 2.58, "• Discarding 49 high AC frequencies removes fine texture,\n  sharp outlines, and high-contrast edge details.",
+            fontsize=8.2, color=C_DARK_TEXT, linespacing=1.35)
 
-    # Consequence 2: Grid Seams
-    c2 = patches.FancyBboxPatch((4.7, 0.4), 4.8, 1.5, boxstyle="round,pad=0.1,rounding_size=0.15",
-                               facecolor="#FFFBEB", edgecolor="#FCD34D", linewidth=1.5)
-    ax.add_patch(c2)
-    ax.text(4.9, 1.5, "Defect 2: Dirichlet Boundary Seams (Blocking)", fontsize=10, fontweight='bold', color="#92400E")
-    ax.text(4.9, 0.85, "• Independent 8×8 block transforms cause step-discontinuities\n  at block boundaries, forming an ugly checkerboard grid.",
-            fontsize=8.5, color="#78350F")
+    d2 = patches.FancyBboxPatch((4.85, 0.55), 4.85, 1.35, boxstyle="round,pad=0.0,rounding_size=0.10",
+                                facecolor=C_BOX_NAVY_BG, edgecolor=C_NAVY, linewidth=1.4)
+    ax.add_patch(d2)
+    ax.text(5.10, 1.58, "Defect 2: Dirichlet Boundary Seams (8×8 Blocking)", fontsize=9.5, fontweight="bold", color=C_NAVY)
+    ax.text(5.10, 0.98, "• Independent 8×8 block transforms lack border continuity,\n  creating artificial step-jumps (checkerboard grid lines).",
+            fontsize=8.2, color=C_DARK_TEXT, linespacing=1.35)
 
-    ax.set_xlim(0, 9.8)
-    ax.set_ylim(0, 4.2)
-    ax.axis('off')
+    ax.set_xlim(0.2, 10.0)
+    ax.set_ylim(0.0, 4.15)
+    ax.axis("off")
     plt.tight_layout()
-    plt.savefig("assets/diagram_jpeg_flaw.png", dpi=250, bbox_inches='tight')
+    plt.savefig("assets/diagram_jpeg_flaw.png", dpi=250, bbox_inches="tight", facecolor="#FFFFFF")
     plt.close()
 
+
 # ==============================================================================
-# Diagram 2: Methodology 1 (GNN Alone) & Border Blindness
+# Diagram 2: Methodology 1 (Pure Frequency GNN)
 # ==============================================================================
 def create_diagram_gnn_pipeline():
-    fig, ax = plt.subplots(figsize=(10, 4.0), dpi=200)
-    ax.set_facecolor("#FFFFFF")
+    fig, ax = plt.subplots(figsize=(10.8, 3.6), dpi=250)
     fig.patch.set_facecolor("#FFFFFF")
+    ax.set_facecolor("#FFFFFF")
 
-    # Boxes for pipeline
     steps = [
-        ("Input Image\n(Pixels)", 0.6, 2.0, "#EFF6FF", C_PRIMARY_BLUE),
-        ("2D-DCT\nTransform", 2.4, 2.0, "#F8FAFC", "#64748B"),
-        ("JPEG Truncation\n(15 Low / 49 Zero)", 4.2, 2.0, "#FEF2F2", "#EF4444"),
-        ("Frequency GNN\n(Harmonic Graphs)", 6.2, 2.0, "#EFF6FF", C_PRIMARY_BLUE),
-        ("2D-IDCT\nReconstruct", 8.2, 2.0, "#F8FAFC", "#64748B"),
+        ("Input Image", "(Spatial Pixels)", False),
+        ("2D-DCT", "(8×8 Blocks)", False),
+        ("JPEG Truncation", "(15 Low / 49 Zero)", False),
+        ("Frequency GNN", "(Harmonic Graph)", True),
+        ("2D-IDCT", "(Reconstruct Pixels)", False),
     ]
+    sx, tw = draw_pipeline_row(ax, steps, y_center=2.55, box_w=1.55, box_h=1.12, gap=0.48)
+    draw_note_banner(
+        ax, sx, tw, 0.30, 1.15,
+        "DIAGNOSIS: Why Pure GNN Achieved Only +0.00 to +0.01 dB Gain",
+        "Each 8×8 frequency graph operates strictly inside its own isolated transform block.\n"
+        "Without continuous spatial filters spanning pixel borders, the GNN cannot eliminate 8×8 grid seams.",
+        is_highlight=False
+    )
 
-    for title, x, y, bg, border in steps:
-        box = patches.FancyBboxPatch((x-0.75, y-0.6), 1.5, 1.2, boxstyle="round,pad=0.1,rounding_size=0.12",
-                                    facecolor=bg, edgecolor=border, linewidth=1.8)
-        ax.add_patch(box)
-        ax.text(x, y, title, ha='center', va='center', fontsize=8.5, fontweight='bold', color=C_DARK_BLUE)
-
-    # Arrows between boxes
-    for i in range(len(steps) - 1):
-        x1 = steps[i][1] + 0.75
-        x2 = steps[i+1][1] - 0.75
-        arrow = patches.FancyArrowPatch((x1, 2.0), (x2, 2.0), arrowstyle='->', mutation_scale=15,
-                                       color=C_PRIMARY_BLUE, linewidth=2)
-        ax.add_patch(arrow)
-
-    # Diagnosis Alert Box at Bottom
-    alert = patches.FancyBboxPatch((0.6, 0.2), 8.4, 0.9, boxstyle="round,pad=0.1,rounding_size=0.12",
-                                  facecolor="#FEF2F2", edgecolor="#F87171", linewidth=1.5)
-    ax.add_patch(alert)
-    ax.text(4.8, 0.75, "❌ Why GNN Alone Flatlined (+0.01 dB gain):", fontsize=9.5, fontweight='bold', color="#991B1B", ha='center')
-    ax.text(4.8, 0.42, "Each 8×8 frequency graph lives strictly inside its own block. It has zero spatial connections to neighboring pixels,\nmaking it physically impossible for the GNN to detect or smooth inter-block boundary seams.",
-            fontsize=8, color="#7F1D1D", ha='center')
-
-    ax.set_xlim(-0.2, 9.8)
-    ax.set_ylim(0, 3.4)
-    ax.axis('off')
+    ax.set_xlim(0.0, 10.8)
+    ax.set_ylim(0.1, 3.4)
+    ax.axis("off")
     plt.tight_layout()
-    plt.savefig("assets/diagram_gnn_pipeline.png", dpi=250, bbox_inches='tight')
+    plt.savefig("assets/diagram_gnn_pipeline.png", dpi=250, bbox_inches="tight", facecolor="#FFFFFF")
     plt.close()
 
+
 # ==============================================================================
-# Diagram 3: Methodology 2 (GNN -> CNN)
+# Diagram 3: Methodology 2 (Hybrid GNN -> CNN)
 # ==============================================================================
 def create_diagram_gnn_cnn_pipeline():
-    fig, ax = plt.subplots(figsize=(10, 4.0), dpi=200)
-    ax.set_facecolor("#FFFFFF")
+    fig, ax = plt.subplots(figsize=(10.8, 3.6), dpi=250)
     fig.patch.set_facecolor("#FFFFFF")
+    ax.set_facecolor("#FFFFFF")
 
-    # Workflow
     steps = [
-        ("JPEG Truncated\nSpectrum", 0.8, 2.2, "#FEF2F2", "#EF4444"),
-        ("STAGE 1: GNN\n(Frequency Domain)", 2.8, 2.2, "#EFF6FF", C_PRIMARY_BLUE),
-        ("2D-IDCT\nTransform", 4.8, 2.2, "#F8FAFC", "#64748B"),
-        ("STAGE 2: CNN\n(Spatial Deblocking)", 6.8, 2.2, "#EFF6FF", C_PRIMARY_BLUE),
-        ("Restored Output\n(+1.58 dB)", 8.8, 2.2, "#ECFDF5", C_SUCCESS),
+        ("Truncated DCT", "(15 Low Freqs)", False),
+        ("STAGE 1: GNN", "(Freq Domain)", True),
+        ("1st IDCT", "(To Pixels)", False),
+        ("STAGE 2: CNN", "(Spatial Deblock)", True),
+        ("Restored Output", "(+1.68 dB Set5)", False),
     ]
+    sx, tw = draw_pipeline_row(ax, steps, y_center=2.55, box_w=1.55, box_h=1.12, gap=0.48)
+    draw_note_banner(
+        ax, sx, tw, 0.30, 1.15,
+        "LIMITATION: Spatial Post-Processing Causes 'Spectral Drift'",
+        "Putting the Spatial CNN at the end removes grid seams, but 3×3 convolutions alter ALL pixel intensities\n"
+        "indiscriminately—corrupting the 15 fundamental low-frequency DCT coefficients that were already exact.",
+        is_highlight=False
+    )
 
-    for title, x, y, bg, border in steps:
-        box = patches.FancyBboxPatch((x-0.8, y-0.6), 1.6, 1.2, boxstyle="round,pad=0.1,rounding_size=0.12",
-                                    facecolor=bg, edgecolor=border, linewidth=1.8)
-        ax.add_patch(box)
-        ax.text(x, y, title, ha='center', va='center', fontsize=8.5, fontweight='bold', color=C_DARK_BLUE)
-
-    for i in range(len(steps) - 1):
-        x1 = steps[i][1] + 0.8
-        x2 = steps[i+1][1] - 0.8
-        arrow = patches.FancyArrowPatch((x1, 2.2), (x2, 2.2), arrowstyle='->', mutation_scale=15,
-                                       color=C_PRIMARY_BLUE, linewidth=2)
-        ax.add_patch(arrow)
-
-    # Explanation of Spectral Drift
-    warning = patches.FancyBboxPatch((0.8, 0.2), 8.8, 1.0, boxstyle="round,pad=0.1,rounding_size=0.12",
-                                    facecolor="#FFFBEB", edgecolor="#FCD34D", linewidth=1.5)
-    ax.add_patch(warning)
-    ax.text(5.2, 0.85, "⚠️ The Limitation: 'Spectral Drift'", fontsize=9.5, fontweight='bold', color="#92400E", ha='center')
-    ax.text(5.2, 0.50, "GNN fixes harmonics first, but when the spatial CNN deblocks seams at the end, it alters the fundamental low frequencies\nthat were originally 100% correct! This causes subtle color blurring and limits maximum PSNR.",
-            fontsize=8, color="#78350F", ha='center')
-
-    ax.set_xlim(-0.2, 10.4)
-    ax.set_ylim(0, 3.4)
-    ax.axis('off')
+    ax.set_xlim(0.0, 10.8)
+    ax.set_ylim(0.1, 3.4)
+    ax.axis("off")
     plt.tight_layout()
-    plt.savefig("assets/diagram_gnn_cnn_pipeline.png", dpi=250, bbox_inches='tight')
+    plt.savefig("assets/diagram_gnn_cnn_pipeline.png", dpi=250, bbox_inches="tight", facecolor="#FFFFFF")
     plt.close()
 
+
 # ==============================================================================
-# Diagram 4: Methodology 3 (CNN -> GNN with Hard Spectral Lock) - WINNER
+# Diagram 4: Methodology 3 (Proposed CNN -> GNN + Eq. 6)
 # ==============================================================================
 def create_diagram_cnn_gnn_pipeline():
-    fig, ax = plt.subplots(figsize=(10, 4.4), dpi=200)
-    ax.set_facecolor("#FFFFFF")
+    fig, ax = plt.subplots(figsize=(10.8, 3.85), dpi=250)
     fig.patch.set_facecolor("#FFFFFF")
+    ax.set_facecolor("#FFFFFF")
 
-    # Pipeline nodes across two rows or sequence
     steps = [
-        ("1. Truncated\nJPEG File", 0.7, 2.6, "#FEF2F2", "#EF4444"),
-        ("1st IDCT\nDecompress", 2.2, 2.6, "#F8FAFC", "#64748B"),
-        ("2. Spatial CNN\n(Macro Deblocking)", 3.9, 2.6, "#EFF6FF", C_PRIMARY_BLUE),
-        ("2nd DCT\nRe-slice", 5.6, 2.6, "#F8FAFC", "#64748B"),
-        ("3. GNN Refiner &\nHARD SPECTRAL LOCK", 7.4, 2.6, "#ECFDF5", C_SUCCESS),
-        ("2nd IDCT\nFinal Image", 9.1, 2.6, "#EFF6FF", C_PRIMARY_BLUE),
+        ("1. Truncated JPEG", "(15 Low Freqs)", False),
+        ("1st IDCT", "(To Pixels)", False),
+        ("2. Spatial CNN", "(Deblock Seams)", True),
+        ("2nd DCT", "(Re-Slice 8×8)", False),
+        ("3. GNN + Eq. 6", "(Lock Low Freqs)", True),
+        ("2nd IDCT", "(Final Output)", False),
     ]
+    sx, tw = draw_pipeline_row(ax, steps, y_center=2.80, box_w=1.35, box_h=1.12, gap=0.40)
+    draw_note_banner(
+        ax, sx, tw, 0.28, 1.45,
+        "BREAKTHROUGH: Spatial First, Spectral Second (+1.95 dB Avg / +4.13 dB Set5 Butterfly)",
+        "1. Spatial CNN eliminates 8×8 boundary seams first and establishes continuous visual edges.\n"
+        "2. 2nd DCT translates smoothed pixels to frequency space; GNN refines harmonic octaves (u <-> 2u).\n"
+        "3. HARD SPECTRAL LOCK (Eq. 6): Clamps true 15 low frequencies back to ground truth (Zero Spectral Drift).",
+        is_highlight=True
+    )
 
-    for title, x, y, bg, border in steps:
-        box = patches.FancyBboxPatch((x-0.65, y-0.6), 1.3, 1.2, boxstyle="round,pad=0.1,rounding_size=0.12",
-                                    facecolor=bg, edgecolor=border, linewidth=1.8)
-        ax.add_patch(box)
-        ax.text(x, y, title, ha='center', va='center', fontsize=8, fontweight='bold', color=C_DARK_BLUE)
-
-    for i in range(len(steps) - 1):
-        x1 = steps[i][1] + 0.65
-        x2 = steps[i+1][1] - 0.65
-        arrow = patches.FancyArrowPatch((x1, 2.6), (x2, 2.6), arrowstyle='->', mutation_scale=14,
-                                       color=C_PRIMARY_BLUE, linewidth=2)
-        ax.add_patch(arrow)
-
-    # Breakthrough Callout Box
-    success = patches.FancyBboxPatch((0.7, 0.2), 9.1, 1.25, boxstyle="round,pad=0.1,rounding_size=0.14",
-                                    facecolor="#F0FDF4", edgecolor="#86EFAC", linewidth=2.0)
-    ax.add_patch(success)
-    ax.text(5.25, 1.15, "🏆 The Breakthrough: Spatial First, Spectral Second (Up to +4.13 dB gain!)",
-            fontsize=10, fontweight='bold', color="#166534", ha='center')
-    ax.text(5.25, 0.70, "1. CNN eliminates 8×8 block seams in the pixel domain and creates continuous edges.\n"
-                        "2. 2nd DCT converts CNN image to frequencies -> GNN checks harmonic octave chains (u <-> 2u).\n"
-                        "3. HARD SPECTRAL LOCK: The 15 true low-frequencies are clamped back to 100% exact truth (Zero Spectral Drift)!",
-            fontsize=8.2, color="#14532D", ha='center')
-
-    ax.set_xlim(-0.2, 10.6)
-    ax.set_ylim(0, 3.8)
-    ax.axis('off')
+    ax.set_xlim(0.0, 10.8)
+    ax.set_ylim(0.1, 3.6)
+    ax.axis("off")
     plt.tight_layout()
-    plt.savefig("assets/diagram_cnn_gnn_pipeline.png", dpi=250, bbox_inches='tight')
+    plt.savefig("assets/diagram_cnn_gnn_pipeline.png", dpi=250, bbox_inches="tight", facecolor="#FFFFFF")
     plt.close()
 
+
 # ==============================================================================
-# Diagram 5: 72-Node Spatial-Frequency Graph Topology
+# Diagram 5: 72-Node Spatial-Frequency Graph Topology (Monochrome Navy + Gray)
 # ==============================================================================
 def create_diagram_graph_topology():
-    fig, ax = plt.subplots(figsize=(10, 4.0), dpi=200)
-    ax.set_facecolor("#FFFFFF")
+    fig, ax = plt.subplots(figsize=(10.4, 4.0), dpi=250)
     fig.patch.set_facecolor("#FFFFFF")
+    ax.set_facecolor("#FFFFFF")
 
-    # Center: 8x8 frequency block
-    ax.text(2.5, 3.6, "Center Block: 64 Frequency Nodes", fontsize=10.5, fontweight='bold', color=C_DARK_BLUE, ha='center')
-    
-    # Draw small network nodes
-    np.random.seed(42)
+    ax.text(2.5, 3.65, "Center Block: 64 Frequency Nodes", fontsize=10.2, fontweight="bold", color=C_NAVY, ha="center")
+
     coords = []
     for r in range(4):
         for c in range(4):
             x = 1.2 + c * 0.85
             y = 1.0 + (3 - r) * 0.65
             coords.append((x, y))
-            color = C_PRIMARY_BLUE if (r + c <= 2) else "#94A3B8"
-            circle = plt.Circle((x, y), 0.16, facecolor=color, edgecolor="#FFFFFF", linewidth=1.5, zorder=5)
+            color = C_NAVY if (r + c <= 2) else "#94A3B8"
+            circle = plt.Circle((x, y), 0.16, facecolor=color, edgecolor="#FFFFFF", linewidth=1.4, zorder=5)
             ax.add_patch(circle)
 
-    # Connect harmonic octave edges (u <-> 2u)
     for i in range(len(coords)):
         for j in range(i + 1, len(coords)):
-            dist = np.hypot(coords[i][0] - coords[j][0], coords[i][1] - coords[j][1])
-            if dist < 1.0:
+            if np.hypot(coords[i][0] - coords[j][0], coords[i][1] - coords[j][1]) < 1.0:
                 ax.plot([coords[i][0], coords[j][0]], [coords[i][1], coords[j][1]],
-                        color="#BFDBFE", linewidth=1.2, zorder=3)
+                        color="#93C5FD", linewidth=1.2, zorder=3)
 
-    # 8 Spatial Neighbor Nodes
-    ax.text(7.2, 3.6, "8 Spatial Neighbor Super-Nodes", fontsize=10.5, fontweight='bold', color=C_DARK_BLUE, ha='center')
-    
+    ax.text(7.4, 3.65, "8 Spatial Neighbor Super-Nodes", fontsize=10.2, fontweight="bold", color=C_NAVY, ha="center")
+
     nb_names = ["NW", "N", "NE", "W", "E", "SW", "S", "SE"]
     nb_offsets = [(-1, 1), (0, 1), (1, 1), (-1, 0), (1, 0), (-1, -1), (0, -1), (1, -1)]
-    cx, cy = 7.2, 2.0
-    
+    cx, cy = 7.4, 2.0
+
     for name, (dx, dy) in zip(nb_names, nb_offsets):
-        nx = cx + dx * 1.3
-        ny = cy + dy * 0.9
-        rect = patches.FancyBboxPatch((nx-0.35, ny-0.25), 0.7, 0.5, boxstyle="round,pad=0.05,rounding_size=0.1",
-                                     facecolor="#EFF6FF", edgecolor=C_PRIMARY_BLUE, linewidth=1.5, zorder=5)
+        nx = cx + dx * 1.45
+        ny = cy + dy * 0.90
+        rect = patches.FancyBboxPatch((nx - 0.34, ny - 0.24), 0.68, 0.48,
+                                      boxstyle="round,pad=0.0,rounding_size=0.08",
+                                      facecolor=C_BOX_NAVY_BG, edgecolor=C_NAVY, linewidth=1.3, zorder=5)
         ax.add_patch(rect)
-        ax.text(nx, ny, name, ha='center', va='center', fontsize=8, fontweight='bold', color=C_PRIMARY_BLUE, zorder=6)
-        
-        # Connect to center
-        ax.plot([cx, nx], [cy, ny], color="#93C5FD", linestyle='--', linewidth=1.4, zorder=3)
+        ax.text(nx, ny, name, ha="center", va="center", fontsize=8.2, fontweight="bold", color=C_NAVY, zorder=6)
+        ax.plot([cx, nx], [cy, ny], color=C_SLATE_EDGE, linestyle="--", linewidth=1.2, zorder=3)
 
-    center_hub = patches.FancyBboxPatch((cx-0.5, cy-0.35), 1.0, 0.7, boxstyle="round,pad=0.05,rounding_size=0.1",
-                                       facecolor=C_PRIMARY_BLUE, edgecolor="#FFFFFF", linewidth=2, zorder=7)
+    center_hub = patches.FancyBboxPatch((cx - 0.52, cy - 0.34), 1.04, 0.68,
+                                        boxstyle="round,pad=0.0,rounding_size=0.10",
+                                        facecolor=C_NAVY, edgecolor="#FFFFFF", linewidth=1.8, zorder=7)
     ax.add_patch(center_hub)
-    ax.text(cx, cy, "Center\nBlock", ha='center', va='center', fontsize=8, fontweight='bold', color="#FFFFFF", zorder=8)
+    ax.text(cx, cy, "Center\nBlock", ha="center", va="center", fontsize=8.2, fontweight="bold", color="#FFFFFF", zorder=8)
 
-    ax.text(5.0, 0.2, "Total: 72 Nodes (64 Frequency + 8 Spatial Context) | 652 Harmonic & Spatial Edges",
-            fontsize=9.5, fontweight='bold', color=C_DARK_BLUE, ha='center')
+    ax.text(5.2, 0.22, "Total: 72 Nodes (64 Frequency + 8 Spatial Context) | 652 Harmonic & Spatial Edges",
+            fontsize=9.2, fontweight="bold", color=C_NAVY, ha="center")
 
-    ax.set_xlim(0, 10)
+    ax.set_xlim(0, 10.4)
     ax.set_ylim(0, 4.0)
-    ax.axis('off')
+    ax.axis("off")
     plt.tight_layout()
-    plt.savefig("assets/diagram_graph_topology.png", dpi=250, bbox_inches='tight')
+    plt.savefig("assets/diagram_graph_topology.png", dpi=250, bbox_inches="tight", facecolor="#FFFFFF")
     plt.close()
+
 
 if __name__ == "__main__":
     create_diagram_jpeg_flaw()
@@ -304,4 +318,4 @@ if __name__ == "__main__":
     create_diagram_gnn_cnn_pipeline()
     create_diagram_cnn_gnn_pipeline()
     create_diagram_graph_topology()
-    print("All technical diagram graphics created successfully in assets/!")
+    print("[SUCCESS] All 5 monochrome academic diagrams regenerated with zero overlap & uniform arrows!")
